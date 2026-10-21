@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+
+<html lang="id"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_tab" name="shell-type"/><title>SILAPAS Lhoknga - Sistem Informasi Layanan Pemasyarakatan</title><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100%;margin:0;padding:0;background-color:#f8f9ff;}body{overscroll-behavior-y:none;-webkit-tap-highlight-color:transparent;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "on-tertiary-fixed-variant": "#005137", "secondary-fixed": "#ffdcc3", "on-tertiary-container": "#21a173", "primary-fixed": "#d1e4ff", "on-background": "#0b1c30", "background": "#f8f9ff", "surface-variant": "#d3e4fe", "on-tertiary-fixed": "#002114", "inverse-on-surface": "#eaf1ff", "tertiary-fixed-dim": "#68dba9", "on-error-container": "#93000a", "error": "#ba1a1a", "surface-container": "#e5eeff", "surface-bright": "#f8f9ff", "on-secondary-fixed": "#2f1500", "secondary-fixed-dim": "#ffb77d", "surface-container-high": "#dce9ff", "surface-container-lowest": "#ffffff", "surface-container-low": "#eff4ff", "primary-fixed-dim": "#b0c9e8", "inverse-surface": "#213145", "on-surface-variant": "#43474d", "on-secondary-container": "#663500", "tertiary": "#00170d", "inverse-primary": "#b0c9e8", "secondary": "#904d00", "tertiary-container": "#002e1d", "secondary-container": "#fe932c", "on-primary-fixed-variant": "#314863", "on-secondary": "#ffffff", "primary-container": "#0f2942", "tertiary-fixed": "#85f8c4", "surface-tint": "#49607c", "on-secondary-fixed-variant": "#6e3900", "surface-container-highest": "#d3e4fe", "on-primary-container": "#7991af", "on-tertiary": "#ffffff", "primary": "#001428", "error-container": "#ffdad6", "surface-dim": "#cbdbf5", "on-primary-fixed": "#011d35", "on-surface": "#0b1c30", "outline": "#74777e", "on-error": "#ffffff", "outline-variant": "#c3c6ce", "surface": "#f8f9ff", "on-primary": "#ffffff" }, borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, spacing: { "space-sm": "0.5rem", "space-lg": "1.5rem", "margin": "1rem", "space-xs": "0.25rem", "space-md": "1rem", "space-xl": "2rem", "gutter": "1rem" }, fontFamily: { "headline-md": ["Plus Jakarta Sans"], "label-md": ["Plus Jakarta Sans"], "headline-sm": ["Plus Jakarta Sans"], "body-sm": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "title-md": ["Plus Jakarta Sans"], "headline-lg-mobile": ["Plus Jakarta Sans"], "label-lg": ["Plus Jakarta Sans"], "label-sm": ["Plus Jakarta Sans"], "body-md": ["Plus Jakarta Sans"], "body-lg": ["Plus Jakarta Sans"] }, fontSize: { "headline-md": ["22px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "700"}], "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "600"}], "headline-sm": ["18px", {"lineHeight": "24px", "letterSpacing": "-0.005em", "fontWeight": "600"}], "body-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "400"}], "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}], "title-md": ["16px", {"lineHeight": "22px", "letterSpacing": "0em", "fontWeight": "600"}], "headline-lg-mobile": ["26px", {"lineHeight": "34px", "letterSpacing": "-0.015em", "fontWeight": "700"}], "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600"}], "label-sm": ["11px", {"lineHeight": "14px", "letterSpacing": "0.04em", "fontWeight": "700"}], "body-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0em", "fontWeight": "400"}], "body-lg": ["16px", {"lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "400"}] } } } };</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-background font-body-md text-on-surface flex flex-col min-h-screen selection:bg-surface-variant"><header class="fixed top-0 inset-x-0 z-50 bg-primary-container/95 backdrop-blur-xl text-on-primary pt-safe shadow-[0_1px_8px_rgba(15,41,66,0.12)]"><div class="h-20 px-margin flex items-center justify-between"><div class="flex items-center gap-space-sm min-w-0 pr-space-xs"><img alt="Logo Lapas Kelas III Lhoknga" class="h-8 w-auto object-contain flex-shrink-0" src="https://lh3.googleusercontent.com/aida/AEtjO1XOh593sO5EoQfPU6aUTdXvgsb2n0DXQMLF5zlzoTzZfBXyRKHqhDHte6bG_buBoMI6xhF-mswnTGFKwb0UGN4jPrJWAMxNQ7c4TUNpRxzDD49dPBf2VNIuAa1SN4maWiqUYkN0eD7Nom0juGfRh1NcJW23kdkmpkh0nVS4GtbCJG2k03lsIhLpCqMBF6JvN-drjz2YxEfWBNNvh9O261EKCl_LRjpBubxKaAPm5EYYIipN69oCOt30"/><div class="flex flex-col min-w-0"><div class="flex items-center gap-1"><span class="font-label-lg text-label-lg tracking-tight font-bold text-on-primary truncate">Lapas Kelas III Lhoknga</span><span class="hidden">Beranda</span></div><span class="font-label-sm text-label-sm text-on-primary-container tracking-wider uppercase font-semibold truncate">Kemenimipas RI</span></div></div><div class="flex items-center gap-space-xs flex-shrink-0"><button aria-label="Pemberitahuan" class="relative w-11 h-11 flex items-center justify-center rounded-full text-on-primary hover:bg-white/10 active:bg-white/15 transition-colors"><span class="material-symbols-outlined text-[24px]">notifications</span><span class="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-secondary-container rounded-full ring-2 ring-primary-container"></span></button><button aria-label="Profil Siti Rahmah" class="flex items-center justify-center p-0.5 rounded-full hover:ring-2 hover:ring-secondary-container transition-all"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC1f10hWwA1hKREfyso_voy_b3xmaK6zCi4DWLVrhp8zRoiqJMEB1YYCq_ZbWW5lNSeekzrzQFol7vWMvHpXn785Yx41skD4d-irOHI6RjD5dub2M7fd3mNSdg-jas8Jbbz9XeXc_JnL2ksI9llX9ZBfw6rGnMnTRN4qGSJWZrw1qbkTsmiIqnkzHjV6EwERH7oKGEwZLqHNum9PE8x2vitHBkftf2n5GN4a8-VrziM7caWMW-KSow"/></button></div></div></header><main class="flex-1 flex flex-col relative w-full pt-20 pb-24 bg-surface max-w-[480px] mx-auto min-h-screen shadow-[0_0_24px_rgba(15,41,66,0.03)]"><div class="flex flex-col w-full pb-8">
+<!-- Top Greeting & Citizen Identity Card -->
+<section class="px-margin pt-4 pb-2">
+<div class="relative overflow-hidden rounded-xl bg-surface-container-lowest p-space-md shadow-sm">
+<div class="flex items-start justify-between gap-space-sm">
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-1.5 text-on-surface-variant font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[16px] text-tertiary-fixed-dim">verified_user</span>
+<span>Identitas Terdata Resmi</span>
+</div>
+<h1 class="font-headline-md text-headline-md text-primary mt-0.5 truncate">
+            Assalamu’alaikum, Siti Rahmah
+          </h1>
+<div class="mt-2 inline-flex items-center gap-1.5 rounded-full bg-surface-container-low px-2.5 py-1 self-start">
+<span class="inline-block w-2 h-2 rounded-full bg-on-tertiary-container"></span>
+<span class="font-label-sm text-label-sm text-on-surface">Keluarga Terverifikasi Dukcapil</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">(NIK 1106********0004)</span>
+</div>
+</div>
+<div class="flex-shrink-0 w-11 h-11 rounded-full bg-surface-container flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined text-[24px]">family_restroom</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Live Status: Kuota & Jam Layanan Hari Ini -->
+<section class="px-margin py-2">
+<div class="relative overflow-hidden rounded-xl bg-surface-container-lowest p-space-md shadow-sm">
+<div class="flex items-center justify-between pb-3">
+<div class="flex items-center gap-2">
+<span class="flex h-2.5 w-2.5 relative">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-tertiary-fixed-dim opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-on-tertiary-container"></span>
+</span>
+<span class="font-label-lg text-label-lg text-on-surface">Jadwal Kunjungan Hari Ini</span>
+</div>
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container-high text-on-tertiary-container font-label-sm text-label-sm font-bold tracking-wide">
+<span class="material-symbols-outlined text-[14px]">lock_open</span>
+          BUKA
+        </span>
+</div>
+<!-- Capacity Progress Bar -->
+<div class="rounded-lg bg-surface-container-low p-space-sm mt-1">
+<div class="flex items-center justify-between mb-1.5">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Ketersediaan Kuota Fisik</span>
+<span class="font-label-md text-label-md text-primary font-bold">38 / 100 Sisa Kuota</span>
+</div>
+<div class="w-full h-2.5 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-secondary-container rounded-full transition-all duration-500" style="width: 62%;"></div>
+</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant mt-2 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-secondary">info</span>
+          62 slot telah terisi untuk sesi kunjungan hari ini
+        </p>
+</div>
+<!-- Sessions Schedule -->
+<div class="grid grid-cols-2 gap-2 mt-3 pt-3">
+<div class="flex flex-col bg-surface-container-lowest p-2 rounded-lg">
+<span class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[15px] text-primary">wb_twilight</span> Sesi Pagi
+          </span>
+<span class="font-label-md text-label-md text-on-surface font-semibold mt-0.5">08.30 - 11.30 WIB</span>
+</div>
+<div class="flex flex-col bg-surface-container-lowest p-2 rounded-lg">
+<span class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[15px] text-secondary">wb_sunny</span> Sesi Siang
+          </span>
+<span class="font-label-md text-label-md text-on-surface font-semibold mt-0.5">13.30 - 15.00 WIB</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Active Visit Reminder Card (Hero Ticket Preview) -->
+<section class="px-margin py-2">
+<div class="relative overflow-hidden rounded-xl bg-primary-container text-on-primary p-space-md shadow-md">
+<!-- Decorative Emblem Watermark -->
+<div class="absolute -right-6 -bottom-6 opacity-10 pointer-events-none text-white">
+<span class="material-symbols-outlined text-[140px]">shield</span>
+</div>
+<div class="relative z-10 flex flex-col">
+<div class="flex items-center justify-between pb-2">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[14px]">event_upcoming</span>
+            Kunjungan Terjadwal Besok
+          </span>
+<span class="font-label-sm text-label-sm text-on-primary-container tracking-wider font-mono">
+            #LHK-20241024-042
+          </span>
+</div>
+<div class="mt-2 flex items-start gap-3">
+<div class="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0 text-secondary-fixed">
+<span class="material-symbols-outlined text-[28px]">account_box</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-body-sm text-body-sm text-on-primary-container">Warga Binaan Pemasyarakatan:</span>
+<span class="font-title-md text-title-md font-bold text-on-primary truncate">M. Yusuf bin Abdullah</span>
+<div class="flex items-center gap-2 mt-0.5">
+<span class="font-label-sm text-label-sm bg-white/15 px-2 py-0.5 rounded text-white">Kamar Hunian B-04</span>
+<span class="font-body-sm text-body-sm text-primary-fixed-dim">Blok Melati</span>
+</div>
+</div>
+</div>
+<div class="mt-4 pt-3 flex items-center justify-between bg-black/20 rounded-lg px-3 py-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-secondary-fixed-dim">calendar_month</span>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-white font-semibold">Kamis, 24 Okt 2024</span>
+<span class="font-body-sm text-body-sm text-primary-fixed-dim">Sesi Pagi (Pukul 09.00 WIB)</span>
+</div>
+</div>
+<span class="font-label-sm text-label-sm px-2 py-1 rounded bg-tertiary-fixed text-on-tertiary-fixed font-bold">LOKET 02</span>
+</div>
+<button class="mt-4 w-full h-11 bg-secondary-container hover:bg-secondary-fixed text-on-secondary hover:text-on-secondary-fixed font-label-lg text-label-lg rounded-lg flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.99]" type="button">
+<span class="material-symbols-outlined text-[20px]">qr_code_scanner</span>
+          Lihat Tiket &amp; QR Code Masuk
+        </button>
+</div>
+</div>
+</section>
+<!-- Quick Action Navigation 4 Grid -->
+<section class="px-margin py-3">
+<div class="flex items-center justify-between mb-2.5">
+<h2 class="font-title-md text-title-md text-primary">Layanan Utama</h2>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Lapas Kelas III Lhoknga</span>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<!-- 1. Kunjungan Tatap Muka -->
+<button class="group relative flex flex-col items-start p-space-md rounded-xl bg-surface-container-lowest text-left shadow-sm hover:shadow-md transition-all active:scale-[0.98]" type="button">
+<div class="flex items-center justify-between w-full mb-3">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined text-[24px]">group</span>
+</div>
+<span class="font-label-sm text-label-sm px-2 py-0.5 rounded-full bg-surface-container-high text-on-tertiary-container font-bold">
+            Buka
+          </span>
+</div>
+<span class="font-label-lg text-label-lg text-primary font-bold leading-snug">Daftar Kunjungan Tatap Muka</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant mt-1">Pilih jadwal besuk langsung keluarga</span>
+</button>
+<!-- 2. Kunjungan Online / Video Call -->
+<button class="group relative flex flex-col items-start p-space-md rounded-xl bg-surface-container-lowest text-left shadow-sm hover:shadow-md transition-all active:scale-[0.98]" type="button">
+<div class="flex items-center justify-between w-full mb-3">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-secondary group-hover:bg-secondary group-hover:text-on-secondary transition-colors">
+<span class="material-symbols-outlined text-[24px]">video_call</span>
+</div>
+<span class="font-label-sm text-label-sm px-2 py-0.5 rounded-full bg-surface-container-low text-on-surface-variant">
+            Virtual
+          </span>
+</div>
+<span class="font-label-lg text-label-lg text-primary font-bold leading-snug">Kunjungan Video Call</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant mt-1">Layanan daring jarak jauh gratis</span>
+</button>
+<!-- 3. Titipan Barang & Makanan -->
+<button class="group relative flex flex-col items-start p-space-md rounded-xl bg-surface-container-lowest text-left shadow-sm hover:shadow-md transition-all active:scale-[0.98]" type="button">
+<div class="flex items-center justify-between w-full mb-3">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary-container group-hover:bg-primary-container group-hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined text-[24px]">inventory_2</span>
+</div>
+<span class="font-label-sm text-label-sm px-2 py-0.5 rounded-full bg-surface-container-low text-on-surface-variant">
+            SOP Ketat
+          </span>
+</div>
+<span class="font-label-lg text-label-lg text-primary font-bold leading-snug">Titipan Barang &amp; Makanan</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant mt-1">Registrasi bawaan sebelum diantar</span>
+</button>
+<!-- 4. Cek Antrean Real-Time -->
+<button class="group relative flex flex-col items-start p-space-md rounded-xl bg-surface-container-lowest text-left shadow-sm hover:shadow-md transition-all active:scale-[0.98]" type="button">
+<div class="flex items-center justify-between w-full mb-3">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-error group-hover:bg-error group-hover:text-on-error transition-colors">
+<span class="material-symbols-outlined text-[24px]">sensors</span>
+</div>
+<span class="flex items-center gap-1 font-label-sm text-label-sm px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-error animate-pulse"></span>
+            Live
+          </span>
+</div>
+<span class="font-label-lg text-label-lg text-primary font-bold leading-snug">Cek Antrean Loket</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant mt-1">Pantau nomor panggilan meja loket</span>
+</button>
+</div>
+</section>
+<!-- Interactive Visual Showcase: Suasana Ruang Layanan -->
+<section class="px-margin py-2">
+<div class="rounded-xl overflow-hidden bg-surface-container-lowest shadow-sm">
+<div class="relative h-36 w-full">
+<img class="w-full h-full object-cover" data-alt="A modern, bright and clean visitation hall in Lapas Kelas III Lhoknga Aceh Indonesia. High ceiling with tropical warm sunlight, neat white visiting desks, wooden elements, friendly correctional officers in neat uniforms assisting visiting Acehnese families with respectful cultural dignity. Professional documentary photograph, architectural civic tech style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuArpbIhWVXlpJndpCxbQNwtN6aIItLlsX7VBJxwqgDB79L55KIOo5TJkGrsBAi_yNtFEMv3EbmayFrcep7VZSCX8tBRS361ZjJRKVMefI3m-_BaykiUVym1kK2iC1S4CrCfjvNCSPvcX2WKPsayOyZK9Kz9T3mNZpORdG5B0lUyFfDlv1gZN9wYCVw5PDzmUeL7UK093dM-czwmqRXguut5W23QfjxGHJExHDpMr-fIK2EhUCIK4dI"/>
+<div class="absolute inset-0 bg-gradient-to-t from-primary/80 via-primary/30 to-transparent"></div>
+<div class="absolute bottom-3 left-3 right-3 text-on-primary">
+<span class="font-label-sm text-label-sm text-secondary-fixed uppercase tracking-wider font-bold">Fasilitas Ramah HAM</span>
+<p class="font-label-lg text-label-lg text-white font-semibold">Ruang Kunjungan Tatap Muka Terpadu</p>
+</div>
+</div>
+<div class="p-3 flex items-center justify-between text-on-surface-variant">
+<span class="font-body-sm text-body-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-on-tertiary-container">check_circle</span>
+          Bebas Asap Rokok • Dilengkapi Arena Bermain Anak
+        </span>
+<span class="material-symbols-outlined text-[20px] text-primary">arrow_forward_ios</span>
+</div>
+</div>
+</section>
+<!-- Alur & Ketentuan Kunjungan (Step Accordion / Visual Process) -->
+<section class="px-margin py-3">
+<div class="flex items-center justify-between mb-3">
+<h2 class="font-title-md text-title-md text-primary">Alur Kunjungan Praktis</h2>
+<span class="font-label-sm text-label-sm text-secondary font-bold">4 Tahap SOP</span>
+</div>
+<div class="flex flex-col gap-2.5">
+<!-- Step 1 -->
+<div class="rounded-xl bg-surface-container-lowest p-space-md shadow-sm flex items-start gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-bold text-label-md flex-shrink-0">
+          1
+        </div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-lg text-label-lg text-primary font-bold">Daftar Online &amp; Siapkan KTP Asli</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+            Pesan tiket H-1 melalui aplikasi SILAPAS. Bawa KTP asli serta Kartu Keluarga asli saat verifikasi fisik di lapas.
+          </p>
+</div>
+</div>
+<!-- Step 2 -->
+<div class="rounded-xl bg-surface-container-lowest p-space-md shadow-sm flex items-start gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-bold text-label-md flex-shrink-0">
+          2
+        </div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-lg text-label-lg text-primary font-bold">Verifikasi Biometrik di Loket Terpadu</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+            Tunjukkan kode QR tiket pada petugas loket untuk pemindaian sidik jari dan pencocokan data Sistem Database Pemasyarakatan (SDP).
+          </p>
+</div>
+</div>
+<!-- Step 3 -->
+<div class="rounded-xl bg-surface-container-lowest p-space-md shadow-sm flex items-start gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-bold text-label-md flex-shrink-0">
+          3
+        </div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-lg text-label-lg text-primary font-bold">Penitipan Barang Sesuai SOP Kemenimipas</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+            Titipkan ponsel pintar, tas ransel, dan perkakas di loker mandiri gratis. Makanan akan diperiksa melalui mesin X-Ray security.
+          </p>
+</div>
+</div>
+<!-- Step 4 -->
+<div class="rounded-xl bg-surface-container-lowest p-space-md shadow-sm flex items-start gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold text-label-md flex-shrink-0">
+          4
+        </div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-lg text-label-lg text-primary font-bold">Temu di Ruang Kunjungan Ramah Keluarga</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+            Masuki ruang temu bernomor meja sesuai tiket. Durasi pertemuan tatap muka maksimal 30 menit per sesi kunjungan.
+          </p>
+</div>
+</div>
+</div>
+</section>
+<!-- Berita & Pengumuman Resmi Lapas Lhoknga -->
+<section class="px-margin py-3">
+<div class="flex items-center justify-between mb-3">
+<h2 class="font-title-md text-title-md text-primary">Pengumuman Resmi</h2>
+<a class="font-label-sm text-label-sm text-secondary font-bold hover:underline" href="#">Lihat Semua</a>
+</div>
+<div class="flex flex-col gap-3">
+<!-- Announcement 1: Zona Integritas WBK -->
+<div class="rounded-xl bg-surface-container-lowest overflow-hidden shadow-sm flex">
+<div class="w-28 h-auto flex-shrink-0 relative">
+<img class="w-full h-full object-cover" data-alt="Official anti-corruption integrity zone badge and public banner in front of Indonesian government correctional facility Lapas Lhoknga Aceh, showing zero extortion and free public services statement. Daylight, professional clean civic photography." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAvhLYobxfTGZXZVKL3e9QomApc13afZ7U0Onq0IsBDU7hD69Cbiljv5L8cqlE8g7LAA3DWUu6TV4TXrb36_RMapBn_pRSqEcMYoFVsxznFcKE5Q176w-MsKsX2Yic2-2Zk2ZK5jCfhaamVDyhNCfFsc_oElYN_nnlnPUsZsA84-uHrVSvU-eiDBMB1F5QhuLKj18501WciJc7Y9DM2ixJKrUgqYJ9hYnzuTSi7ag3Czx5t0ww4SiY"/>
+</div>
+<div class="p-space-md flex flex-col justify-center min-w-0 flex-1">
+<div class="flex items-center gap-1.5 mb-1">
+<span class="inline-block px-1.5 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-[10px] font-bold">WBK 2024</span>
+<span class="font-body-sm text-[11px] text-on-surface-variant">21 Okt 2024</span>
+</div>
+<span class="font-label-lg text-label-lg text-primary font-bold line-clamp-2 leading-snug">
+            Layanan Lapas Bebas Pungutan Liar (Zona Integritas WBK)
+          </span>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-1 mt-1">
+            Seluruh layanan pemasyarakatan gratis tanpa dipungut biaya apapun.
+          </p>
+</div>
+</div>
+<!-- Announcement 2: Tata Tertib Pakaian -->
+<div class="rounded-xl bg-surface-container-lowest overflow-hidden shadow-sm flex">
+<div class="w-28 h-auto flex-shrink-0 relative">
+<img class="w-full h-full object-cover" data-alt="Educational visual poster explaining visitor dress code at Lapas Lhoknga Aceh, showing neat modest attire, long trousers, hijabs, closed shoes, and prohibited electronic items. Clean, respectful civic public information banner design." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCXh390P2dJd2Jfmjun65_QqBAgx8YChsU-q7_jHUjElEIMMPVTCrCUf6UU3VkVpQfRO44k8eRK0Rk7-69plRsPr9ODZn7xlDLSg5MH_Lx1w9a0q27keAGxBVI4rn_diYRv2SwYas3G2tPZQ1H3gavznAxd3kM4LZV5bhROsAiALrPK8GEq5Mz7hEkwxzobnFagwrzt0ZUcDHnMlrjepVIZAWg3SBJ3AZQDuhAezkOz1uzhy5cRDeE"/>
+</div>
+<div class="p-space-md flex flex-col justify-center min-w-0 flex-1">
+<div class="flex items-center gap-1.5 mb-1">
+<span class="inline-block px-1.5 py-0.5 rounded bg-secondary-fixed text-on-secondary-fixed font-label-sm text-[10px] font-bold">TATA TERTIB</span>
+<span class="font-body-sm text-[11px] text-on-surface-variant">19 Okt 2024</span>
+</div>
+<span class="font-label-lg text-label-lg text-primary font-bold line-clamp-2 leading-snug">
+            Himbauan Pakaian Pengunjung &amp; Larangan Bawaan Elektronik
+          </span>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-1 mt-1">
+            Wajib berbusana sopan, tertutup, dan tidak membawa kamera atau gawai.
+          </p>
+</div>
+</div>
+</div>
+</section>
+<!-- Help & Hotline Callout Card -->
+<section class="px-margin pt-2">
+<div class="rounded-xl bg-surface-container-low p-space-md flex items-center justify-between">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center text-primary flex-shrink-0">
+<span class="material-symbols-outlined text-[22px]">contact_support</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-md text-label-md text-primary font-bold truncate">Pusat Bantuan &amp; Pengaduan</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">Hotline WhatsApp: +62 811-6800-432</span>
+</div>
+</div>
+<a aria-label="Hubungi Hotline" class="h-9 px-3 rounded-lg bg-primary text-on-primary font-label-sm text-label-sm flex items-center justify-center flex-shrink-0 active:scale-95 transition-all" href="tel:+628116800432">
+        Hubungi
+      </a>
+</div>
+</section>
+</div>
+<script>
+  // Simple micro-interaction for active queue count update simulation
+  document.addEventListener('DOMContentLoaded', () => {
+    const queueButtons = document.querySelectorAll('button');
+    queueButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        // tactile micro vibration if supported
+        if (navigator.vibrate) {
+          navigator.vibrate(20);
+        }
+      });
+    });
+  });
+</script></main><nav class="fixed bottom-0 inset-x-0 z-50 pb-safe bg-surface-container-lowest/95 backdrop-blur-xl shadow-[0_-4px_16px_rgba(15,41,66,0.06)]" data-active-classes="text-secondary font-semibold"><div class="max-w-[480px] mx-auto grid grid-cols-4 items-center h-16 px-space-xs"><a aria-current="page" class="flex flex-col items-center justify-center gap-1 h-full min-h-[44px] transition-colors text-secondary font-semibold" data-path="beranda" href="#"><span class="material-symbols-outlined text-[22px]">home</span><span class="font-label-sm text-label-sm">Beranda</span></a><a class="flex flex-col items-center justify-center gap-1 h-full min-h-[44px] text-on-surface-variant hover:text-on-surface transition-colors" data-path="pendaftaran" href="#"><span class="material-symbols-outlined text-[22px]">event_available</span><span class="font-label-sm text-label-sm">Pendaftaran</span></a><a class="relative flex flex-col items-center justify-center gap-1 h-full min-h-[44px] text-on-surface-variant hover:text-on-surface transition-colors" data-path="tiket-dan-antrean" href="#"><div class="relative flex items-center justify-center"><span class="material-symbols-outlined text-[22px]">confirmation_number</span><span class="absolute -top-1 -right-2 px-1.5 py-0.2 bg-secondary-container text-on-secondary font-label-sm text-[10px] leading-tight rounded-full">1</span></div><span class="font-label-sm text-label-sm">Tiket Antrean</span></a><a class="flex flex-col items-center justify-center gap-1 h-full min-h-[44px] text-on-surface-variant hover:text-on-surface transition-colors" data-path="layanan-dan-bantuan" href="#"><span class="material-symbols-outlined text-[22px]">support_agent</span><span class="font-label-sm text-label-sm">Layanan</span></a></div></nav></body></html>

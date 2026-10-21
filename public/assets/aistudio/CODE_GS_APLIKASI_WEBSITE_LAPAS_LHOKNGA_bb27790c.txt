@@ -1,0 +1,1531 @@
+// =====================================================================
+//  BACKEND (Code.gs) : WEBSITE RESMI LAPAS KELAS III LHOKNGA
+//  Sistem Informasi: Portal Berita, Pelayanan Publik, Pendaftaran
+//  Kunjungan Ramah HAM & Inklusif, Pengaduan, Dashboard Admin.
+//
+//  DATABASE : Google Spreadsheet (semua sheet dibuat OTOMATIS)
+//  DOKUMEN  : Google Drive (subfolder dibuat OTOMATIS)
+//  AKUN     : Super Admin, Petugas Layanan, Humas
+// =====================================================================
+
+const SPREADSHEET_ID = '1BidB82phF5I1hD84KZWY_CUsVf3xBbSG8JI1OdZmEys';
+const DRIVE_FOLDER_ID = '11IYgYYixq6osTie1t4p0zqBrWXJwYAFA';
+const DEFAULT_LOGO = 'https://lh3.googleusercontent.com/d/1H3eaJ9pLakOtu_aX2pNR90iM4yBllik1';
+
+const TZ = 'Asia/Jakarta';
+const SETUP_VERSION = '2026.10.3';     // naikkan angka ini bila struktur sheet diubah
+const SESI_TTL = 21600;                // sesi login admin: 6 jam
+const HASH_ROUNDS = 300;
+const MAKS_GAMBAR_BYTE = 6 * 1024 * 1024;
+const MAKS_DOKUMEN_BYTE = 10 * 1024 * 1024;
+
+const R_SUPER = 'Super Admin';
+const R_LAYANAN = 'Petugas Layanan';
+const R_HUMAS = 'Humas';
+
+const KATEGORI_BERITA = ['Kegiatan Kepala Lapas', 'Pelayanan Publik', 'Pembinaan Warga Binaan', 'Keamanan dan Ketertiban', 'Ketahanan Pangan', 'Kerja Sama', 'Inovasi Pemasyarakatan', 'Kegiatan Pegawai', 'Hari Besar Nasional', 'Pelayanan Ramah HAM'];
+const KELOMPOK_LAYANAN = ['Kunjungan', 'Hak Warga Binaan', 'Informasi Publik', 'Pengaduan'];
+const KATEGORI_DOKUMEN = ['Informasi Berkala', 'Informasi Setiap Saat', 'Informasi Serta-merta', 'Standar Pelayanan', 'Maklumat Pelayanan', 'Formulir', 'Laporan Kinerja', 'Lainnya'];
+const KATEGORI_PENGADUAN = ['Pelayanan Kunjungan', 'Pelayanan Publik', 'Perlakuan terhadap Warga Binaan', 'Sikap dan Etika Pegawai', 'Sarana dan Prasarana', 'Dugaan Pungutan Liar / Gratifikasi', 'Saran dan Masukan', 'Lainnya'];
+const KEBUTUHAN_KHUSUS = ['Pengguna kursi roda', 'Tunanetra / low vision', 'Tuli / gangguan pendengaran', 'Gangguan wicara', 'Disabilitas intelektual / mental', 'Lansia', 'Ibu hamil', 'Mobilitas terbatas sementara', 'Perlu pendamping', 'Perlu juru bahasa isyarat', 'Lainnya'];
+const HUBUNGAN = ['Orang tua', 'Suami / Istri', 'Anak', 'Saudara kandung', 'Keluarga lainnya', 'Kuasa hukum', 'Rohaniawan / Pembimbing', 'Lainnya'];
+const STATUS_KUNJUNGAN = ['Menunggu Verifikasi', 'Disetujui', 'Ditolak', 'Dibatalkan', 'Selesai', 'Tidak Hadir'];
+const STATUS_BERITA = ['Draft', 'Menunggu Persetujuan', 'Terjadwal', 'Terbit', 'Arsip'];
+const STATUS_PENGADUAN = ['Baru', 'Diproses', 'Selesai', 'Tidak Dapat Diproses'];
+
+// ---------------------------------------------------------------------
+//  SKEMA SHEET (urutan kolom = urutan di Spreadsheet)
+// ---------------------------------------------------------------------
+const SCHEMA = {
+  Users: ['Username', 'Nama', 'Jabatan', 'Role', 'Password_Hash', 'Salt', 'Status', 'Wajib_Ganti', 'Email', 'Terakhir_Login', 'Dibuat'],
+  Pengaturan: ['Kunci', 'Nilai', 'Keterangan'],
+  Halaman: ['Slug', 'Judul', 'Kelompok', 'Isi', 'Diubah', 'Diubah_Oleh'],
+  Pejabat: ['ID', 'Nama', 'Jabatan', 'Foto_URL', 'Atasan_ID', 'Urutan', 'Tipe', 'Profil', 'Aktif'],
+  Berita: ['ID', 'Slug', 'Judul', 'Kategori', 'Ringkasan', 'Foto_URL', 'Galeri', 'Penulis', 'Status', 'Tgl_Terbit', 'Tgl_Jadwal', 'Dibuat', 'Diubah', 'SEO_Judul', 'SEO_Deskripsi', 'Dilihat', 'Dibuat_Oleh', 'Disetujui_Oleh', 'Catatan_Review'],
+  Berita_Isi: ['ID', 'Isi'],
+  Pelayanan: ['ID', 'Kelompok', 'Nama', 'Ikon', 'Ringkasan', 'Tujuan', 'Persyaratan', 'Prosedur', 'Alur', 'Waktu', 'Biaya', 'Dasar_Hukum', 'Dokumen', 'Formulir', 'FAQ', 'Kontak', 'Urutan', 'Aktif'],
+  Program: ['ID', 'Judul', 'Kategori', 'Ikon', 'Deskripsi', 'Foto_URL', 'Capaian', 'Urutan', 'Aktif'],
+  Galeri: ['ID', 'Judul', 'Foto_URL', 'Album', 'Tanggal', 'Dibuat_Oleh', 'Aktif'],
+  Dokumen: ['ID', 'Judul', 'Kategori', 'Deskripsi', 'File_URL', 'Tanggal', 'Unduhan', 'Dibuat_Oleh', 'Aktif'],
+  Kunjungan: ['No_Reg', 'Kode_Cek', 'Tgl_Daftar', 'Tgl_Kunjungan', 'Sesi', 'Jam', 'Nama', 'NIK', 'No_HP', 'Email', 'Alamat', 'Nama_WBP', 'Hubungan', 'Pengikut', 'Kebutuhan', 'Detail_Kebutuhan', 'Berkas_ID', 'Status', 'Catatan', 'Diproses_Oleh', 'Waktu_Proses'],
+  Pengaduan: ['No_Tiket', 'Kode_Cek', 'Tanggal', 'Jenis', 'Kategori', 'Nama', 'Kontak', 'Anonim', 'Subjek', 'Isi', 'Lampiran_ID', 'Status', 'Tanggapan', 'Ditangani_Oleh', 'Waktu_Tanggapan'],
+  Log: ['Waktu', 'User', 'Role', 'Aksi', 'Detail']
+};
+const HEADER_BG = { Users: '#0f172a', Pengaturan: '#0f172a', Log: '#0f172a' };
+
+// [kunci, nilai bawaan, keterangan, tampil di publik (1/0)]
+const DEFAULT_SETTINGS = [
+  ['Nama_Instansi', 'Lembaga Pemasyarakatan Kelas III Lhoknga', 'Nama resmi instansi', 1],
+  ['Nama_Singkat', 'Lapas Kelas III Lhoknga', 'Nama singkat untuk header', 1],
+  ['Kementerian', 'Kementerian Imigrasi dan Pemasyarakatan Republik Indonesia', 'Nama kementerian', 1],
+  ['Kanwil', 'Kantor Wilayah Direktorat Jenderal Pemasyarakatan Aceh', 'Nama kantor wilayah', 1],
+  ['Logo_URL', DEFAULT_LOGO, 'URL logo resmi', 1],
+  ['Hero_URL', '', 'URL foto resmi untuk bagian atas beranda', 1],
+  ['Alamat', '', 'Alamat resmi', 1],
+  ['Telepon', '', 'Nomor telepon resmi', 1],
+  ['Email', '', 'Email resmi', 1],
+  ['WhatsApp_Layanan', '', 'Nomor WhatsApp layanan, format 628xxxxxxxxxx', 1],
+  ['Jam_Layanan', '', 'Contoh: Senin - Jumat, 08.00 - 16.00 WIB (isi sesuai ketentuan)', 1],
+  ['Maps_Embed', '', 'URL embed Google Maps (Bagikan > Sematkan peta > salin isi src)', 1],
+  ['Maps_Link', '', 'Tautan Google Maps lokasi', 1],
+  ['Sosmed_Instagram', '', 'URL Instagram resmi', 1],
+  ['Sosmed_Facebook', '', 'URL Facebook resmi', 1],
+  ['Sosmed_YouTube', '', 'URL YouTube resmi', 1],
+  ['Sosmed_TikTok', '', 'URL TikTok resmi', 1],
+  ['Sosmed_X', '', 'URL X / Twitter resmi', 1],
+  ['Kepala_Nama', '', 'Nama Kepala Lapas', 1],
+  ['Kepala_Jabatan', 'Kepala Lapas Kelas III Lhoknga', 'Jabatan', 1],
+  ['Kepala_Foto', '', 'URL foto resmi Kepala Lapas', 1],
+  ['Kepala_Sambutan', '', 'Teks sambutan Kepala Lapas', 1],
+  ['Pengumuman', '', 'Teks pengumuman di bagian atas situs (kosongkan untuk menyembunyikan)', 1],
+  ['Pendaftaran_Dibuka', 'Ya', 'Ya / Tidak: buka-tutup pendaftaran kunjungan online', 1],
+  ['Jadwal_Kunjungan', '{}', 'Jadwal sesi per hari (diatur lewat menu Pengaturan Kunjungan)', 1],
+  ['Maks_Hari_Daftar', '14', 'Pendaftaran dapat dilakukan paling jauh berapa hari ke depan', 1],
+  ['Min_Hari_Daftar', '1', 'Pendaftaran paling lambat berapa hari sebelum kunjungan (0 = boleh hari yang sama)', 1],
+  ['Maks_Pengikut', '3', 'Jumlah maksimal pengikut dalam satu pendaftaran', 1],
+  ['Maks_Kunjungan_WBP_Hari', '0', 'Maksimal pendaftaran aktif per warga binaan per hari (0 = tidak dibatasi)', 1],
+  ['Libur_Kunjungan', '', 'Tanggal tutup kunjungan: satu per baris, format yyyy-mm-dd|keterangan', 1],
+  ['KTP_Wajib', 'Tidak', 'Ya / Tidak: apakah unggah foto identitas wajib', 1],
+  ['Fasilitas_Disabilitas', '', 'Fasilitas aksesibilitas yang BENAR-BENAR tersedia: satu per baris', 1],
+  ['Wajib_Persetujuan_Berita', 'Tidak', 'Ya / Tidak: berita Humas harus disetujui Super Admin sebelum terbit', 0],
+  ['Email_Notifikasi_Layanan', '', 'Email petugas layanan untuk notifikasi pendaftaran baru (opsional)', 0],
+  ['Email_Notifikasi_Humas', '', 'Email Humas untuk notifikasi pengaduan baru (opsional)', 0]
+];
+// kunci pengaturan yang boleh diubah per role (Super Admin: semua)
+const SETTING_ROLES = {
+  'Petugas Layanan': ['Pendaftaran_Dibuka', 'Jadwal_Kunjungan', 'Maks_Hari_Daftar', 'Min_Hari_Daftar', 'Maks_Pengikut', 'Maks_Kunjungan_WBP_Hari', 'Libur_Kunjungan', 'KTP_Wajib', 'Fasilitas_Disabilitas', 'WhatsApp_Layanan', 'Email_Notifikasi_Layanan'],
+  'Humas': ['Pengumuman', 'Email_Notifikasi_Humas']
+};
+
+// ---------------------------------------------------------------------
+//  ENTRY POINT
+// ---------------------------------------------------------------------
+function doGet(e) {
+  pastikanSetup_();
+  const p = (e && e.parameter) || {};
+  let route = '';
+  if (p.p && /^[a-z0-9\-_]{1,60}$/i.test(p.p)) {
+    route = '/' + p.p;
+    if (p.s && /^[a-z0-9\-_]{1,120}$/i.test(p.s)) route += '/' + p.s;
+  }
+  const cfg = cfg_();
+  const t = HtmlService.createTemplateFromFile('Index');
+  t.bootJson = JSON.stringify({ baseUrl: ScriptApp.getService().getUrl(), route: route })
+    .replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+  const out = t.evaluate()
+    .setTitle((cfg.Nama_Instansi || 'Lapas Kelas III Lhoknga') + ' - Website Resmi')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  try { out.setFaviconUrl(cfg.Logo_URL || DEFAULT_LOGO); } catch (err) {}
+  return out;
+}
+
+// ---------------------------------------------------------------------
+//  HELPER UMUM (akhiran "_" = tidak bisa dipanggil dari browser)
+// ---------------------------------------------------------------------
+function fail_(msg, code) { const e = new Error(msg); e.userMsg = msg; e.code = code || ''; throw e; }
+
+function safe_(fn, detail) {
+  try { return { ok: true, data: fn() }; }
+  catch (e) {
+    if (!e.userMsg) console.error(e && e.stack ? e.stack : e);
+    return { ok: false, code: e.code || '', message: e.userMsg || (detail ? 'Kesalahan server: ' + String(e.message).slice(0, 220) : 'Terjadi kesalahan pada server. Silakan coba lagi.') };
+  }
+}
+
+function withLock_(fn) {
+  const lock = LockService.getScriptLock();
+  try { lock.waitLock(20000); } catch (e) { fail_('Server sedang sibuk. Silakan coba lagi beberapa detik lagi.'); }
+  try { return fn(); } finally { lock.releaseLock(); }
+}
+
+function now_() { return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm:ss'); }
+function today_() { return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'); }
+function isDate_(s) { return /^\d{4}-\d{2}-\d{2}$/.test(String(s)) && !isNaN(Date.parse(s)); }
+function addDays_(d, n) { const p = d.split('-').map(Number); return Utilities.formatDate(new Date(Date.UTC(p[0], p[1] - 1, p[2] + n)), 'UTC', 'yyyy-MM-dd'); }
+function dow_(d) { const p = d.split('-').map(Number); return new Date(Date.UTC(p[0], p[1] - 1, p[2])).getUTCDay(); }
+function int_(v, def) { const n = parseInt(v, 10); return isNaN(n) ? def : n; }
+function str_(v, max) { return String(v === undefined || v === null ? '' : v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').trim().slice(0, max || 500); }
+function jsonSafe_(s, def) { try { const v = JSON.parse(s); return v === null || v === undefined ? def : v; } catch (e) { return def; } }
+function esc_(s) { return String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function slugify_(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80); }
+function newId_(prefix) { return prefix + Utilities.getUuid().replace(/-/g, '').slice(0, 8).toUpperCase(); }
+function randCode_(n) { const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; for (let i = 0; i < n; i++) s += a.charAt(Math.floor(Math.random() * a.length)); return s; }
+function validUrl_(u, allowEmpty) { u = str_(u, 1000); if (!u) return allowEmpty === false ? fail_('URL wajib diisi.') : ''; if (!/^https:\/\/[^\s<>"']+$/i.test(u)) fail_('URL harus diawali https:// dan tidak boleh mengandung spasi.'); return u; }
+function validEmail_(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e); }
+function normHp_(h) { h = String(h || '').replace(/[\s\-().]/g, ''); if (h.indexOf('+62') === 0) h = '0' + h.slice(3); else if (h.indexOf('62') === 0) h = '0' + h.slice(2); return h; }
+
+// ---- cache ----
+function cget_(k) { try { const v = CacheService.getScriptCache().get(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+function cput_(k, v, ttl) { try { const s = JSON.stringify(v); if (s.length < 90000) CacheService.getScriptCache().put(k, s, ttl || 300); } catch (e) {} }
+function cdel_(keys) { try { CacheService.getScriptCache().removeAll(keys); } catch (e) {} }
+function bersihCache_() { cdel_(['cfg', 'pub_beranda', 'pub_pelayanan', 'pub_program', 'pub_galeri', 'pub_struktur', 'pub_dokumen']); }
+
+// ---- sheet ----
+let _ss = null;
+function ss_() { if (!_ss) _ss = SpreadsheetApp.openById(SPREADSHEET_ID); return _ss; }
+function sh_(name) {
+  const book = ss_();
+  let s = book.getSheetByName(name);
+  if (!s) { s = book.insertSheet(name); initSheet_(s, name); }
+  return s;
+}
+function initSheet_(s, name) {
+  const H = SCHEMA[name];
+  if (s.getMaxColumns() < H.length) s.insertColumnsAfter(s.getMaxColumns(), H.length - s.getMaxColumns());
+  s.getRange(1, 1, 1, H.length).setNumberFormat('@').setValues([H]).setFontWeight('bold').setBackground(HEADER_BG[name] || '#01162a').setFontColor('#ffffff');
+  if (s.getMaxRows() > 1) s.getRange(2, 1, s.getMaxRows() - 1, H.length).setNumberFormat('@');
+  s.setFrozenRows(1);
+}
+function cell_(v) { if (v instanceof Date) return Utilities.formatDate(v, TZ, 'yyyy-MM-dd HH:mm:ss'); return v === null || v === undefined ? '' : String(v); }
+function table_(name) {
+  const H = SCHEMA[name], s = sh_(name), last = s.getLastRow();
+  if (last < 2) return [];
+  const v = s.getRange(2, 1, last - 1, H.length).getValues();
+  const out = [];
+  for (let i = 0; i < v.length; i++) {
+    const o = { _row: i + 2 };
+    for (let j = 0; j < H.length; j++) o[H[j]] = cell_(v[i][j]);
+    if (o[H[0]] !== '') out.push(o);
+  }
+  return out;
+}
+function rowArr_(name, obj) { return SCHEMA[name].map(function (k) { return obj[k] === undefined || obj[k] === null ? '' : String(obj[k]); }); }
+function addRow_(name, obj) {
+  const s = sh_(name), n = SCHEMA[name].length, r = s.getLastRow() + 1;
+  if (r > s.getMaxRows()) s.insertRowsAfter(s.getMaxRows(), 200);
+  s.getRange(r, 1, 1, n).setNumberFormat('@').setValues([rowArr_(name, obj)]);
+  return r;
+}
+function setRow_(name, row, obj) { sh_(name).getRange(row, 1, 1, SCHEMA[name].length).setNumberFormat('@').setValues([rowArr_(name, obj)]); }
+function delRow_(name, row) { sh_(name).deleteRow(row); }
+function clean_(o) { const c = {}; Object.keys(o).forEach(function (k) { if (k !== '_row') c[k] = o[k]; }); return c; }
+
+function log_(user, aksi, detail) {
+  try { addRow_('Log', { Waktu: now_(), User: user ? user.username : '-', Role: user ? user.role : '-', Aksi: aksi, Detail: str_(detail, 300) }); } catch (e) {}
+}
+
+// ---- pengaturan ----
+function cfg_() {
+  let c = cget_('cfg');
+  if (c) return c;
+  c = {};
+  DEFAULT_SETTINGS.forEach(function (d) { c[d[0]] = d[1]; });
+  table_('Pengaturan').forEach(function (r) { c[r.Kunci] = r.Nilai; });
+  cput_('cfg', c, 600);
+  return c;
+}
+function cfgPub_() { const c = cfg_(), o = {}; DEFAULT_SETTINGS.forEach(function (d) { if (d[3]) o[d[0]] = c[d[0]]; }); return o; }
+
+// ---------------------------------------------------------------------
+//  SETUP OTOMATIS (berjalan sekali; aman diulang)
+// ---------------------------------------------------------------------
+function pastikanSetup_() {
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty('SETUP_VERSION') === SETUP_VERSION) return;
+  withLock_(function () {
+    if (props.getProperty('SETUP_VERSION') === SETUP_VERSION) return;
+    Object.keys(SCHEMA).forEach(function (name) {
+      const book = ss_();
+      let s = book.getSheetByName(name);
+      if (!s) { s = book.insertSheet(name); }
+      initSheet_(s, name);
+    });
+    seedPengaturan_(); seedUsers_(); seedHalaman_(); seedPelayanan_(); seedProgram_(); isiKontenBawaan_();
+    bersihCache_();
+    props.setProperty('SETUP_VERSION', SETUP_VERSION);
+  });
+}
+// Bisa dijalankan manual dari editor Apps Script (menu Run > setupAwal)
+function setupAwal() {
+  PropertiesService.getScriptProperties().deleteProperty('SETUP_VERSION');
+  pastikanSetup_();
+  getSubfolder_('Berita'); getSubfolder_('Galeri'); getSubfolder_('Dokumen'); getSubfolder_('Profil'); getSubfolder_('Berkas_Kunjungan_PRIVAT'); getSubfolder_('Lampiran_Pengaduan_PRIVAT');
+  Logger.log('Setup selesai. Akun awal: admin / layanan / humas (lihat README). Wajib ganti password saat login pertama.');
+}
+
+function seedPengaturan_() {
+  const ada = {}; table_('Pengaturan').forEach(function (r) { ada[r.Kunci] = 1; });
+  DEFAULT_SETTINGS.forEach(function (d) { if (!ada[d[0]]) addRow_('Pengaturan', { Kunci: d[0], Nilai: d[1], Keterangan: d[2] }); });
+}
+
+function seedUsers_() {
+  if (table_('Users').length) return;
+  [
+    ['admin', 'Administrator Website', 'Super Admin', R_SUPER, 'Admin@Lhoknga26'],
+    ['layanan', 'Petugas Layanan', 'Petugas Layanan Kunjungan', R_LAYANAN, 'Layanan@Lhoknga26'],
+    ['humas', 'Humas', 'Pengelola Informasi dan Humas', R_HUMAS, 'Humas@Lhoknga26']
+  ].forEach(function (u) {
+    const salt = Utilities.getUuid();
+    addRow_('Users', { Username: u[0], Nama: u[1], Jabatan: u[2], Role: u[3], Password_Hash: hash_(u[4], salt), Salt: salt, Status: 'Aktif', Wajib_Ganti: 'Ya', Email: '', Terakhir_Login: '', Dibuat: now_() });
+  });
+}
+
+function seedHalaman_() {
+  const ada = {}; table_('Halaman').forEach(function (r) { ada[r.Slug] = 1; });
+  const privasi = '<p>Website ini mengumpulkan data pribadi hanya bila Anda menggunakan layanan tertentu, yaitu pendaftaran kunjungan online (SILAKU), pengaduan (SILADU), dan permohonan informasi.</p>' +
+    '<h3>Data yang dikumpulkan</h3><p>Nama, nomor identitas (NIK), nomor telepon, email, alamat, data warga binaan yang dikunjungi, kebutuhan layanan khusus, serta berkas yang Anda unggah secara sukarela.</p>' +
+    '<h3>Tujuan penggunaan</h3><p>Data digunakan semata-mata untuk memproses layanan yang Anda ajukan, menghubungi Anda terkait layanan tersebut, dan menjaga ketertiban serta keamanan pelayanan.</p>' +
+    '<h3>Akses dan perlindungan</h3><p>Data hanya dapat dibuka oleh petugas berwenang setelah masuk dengan akun resmi. Berkas identitas dan lampiran disimpan pada penyimpanan tertutup dan tidak ditampilkan kepada publik. Nomor identitas tidak pernah ditampilkan pada halaman publik.</p>' +
+    '<h3>Informasi kebutuhan khusus</h3><p>Informasi kebutuhan khusus atau disabilitas yang Anda isi hanya dipakai untuk menyiapkan layanan yang sesuai, bukan untuk membatasi hak Anda mengunjungi.</p>' +
+    '<p><em>Catatan untuk pengelola: sesuaikan teks ini dengan kebijakan perlindungan data pribadi resmi instansi.</em></p>';
+  const ketentuan = '<p>Dengan menggunakan website ini, Anda menyatakan bersedia mematuhi ketentuan berikut.</p>' +
+    '<ul><li>Isilah data pendaftaran dan pengaduan dengan benar. Data palsu dapat menyebabkan pendaftaran ditolak.</li>' +
+    '<li>Seluruh layanan di website ini disediakan oleh instansi dan tidak dipungut biaya kecuali ditentukan lain dalam halaman layanan yang bersangkutan.</li>' +
+    '<li>Petugas tidak pernah meminta imbalan untuk layanan ini. Laporkan dugaan pungutan liar melalui menu Kontak dan SILADU (Sistem Layanan Pengaduan).</li>' +
+    '<li>Konten website, termasuk berita dan foto, dimiliki instansi dan dilindungi ketentuan hak cipta.</li>' +
+    '<li>Instansi berhak menolak atau membatalkan pendaftaran sesuai ketentuan keamanan dan peraturan yang berlaku.</li></ul>' +
+    '<p><em>Catatan untuk pengelola: sesuaikan teks ini dengan ketentuan resmi instansi.</em></p>';
+  [
+    ['sejarah', 'Sejarah Lapas', 'Profil', ''], ['profil-singkat', 'Profil Singkat', 'Profil', ''], ['tugas-fungsi', 'Tugas dan Fungsi', 'Profil', ''],
+    ['visi-misi', 'Visi dan Misi', 'Profil', ''], ['profil-kepala', 'Profil Kepala Lapas', 'Profil', ''], ['alamat-wilayah', 'Alamat dan Wilayah Kerja', 'Profil', ''],
+    ['nilai-organisasi', 'Nilai Organisasi', 'Profil', ''], ['budaya-kerja', 'Budaya Kerja', 'Profil', ''],
+    ['kebijakan-privasi', 'Kebijakan Privasi', 'Umum', privasi], ['ketentuan-penggunaan', 'Ketentuan Penggunaan', 'Umum', ketentuan]
+  ].forEach(function (h) { if (!ada[h[0]]) addRow_('Halaman', { Slug: h[0], Judul: h[1], Kelompok: h[2], Isi: h[3], Diubah: now_(), Diubah_Oleh: 'sistem' }); });
+}
+
+function seedPelayanan_() {
+  if (table_('Pelayanan').length) return;
+  const hak = 'Persyaratan dan keputusan atas layanan ini mengikuti peraturan perundang-undangan serta proses verifikasi resmi oleh petugas.';
+  [
+    ['jadwal-kunjungan', 'Kunjungan', 'Jadwal dan Jam Kunjungan', 'fa-calendar-days', ''],
+    ['persyaratan-kunjungan', 'Kunjungan', 'Persyaratan Pengunjung', 'fa-clipboard-check', ''],
+    ['prosedur-kunjungan', 'Kunjungan', 'Prosedur Kunjungan', 'fa-route', ''],
+    ['barang-bawaan', 'Kunjungan', 'Ketentuan Barang Bawaan', 'fa-bag-shopping', ''],
+    ['pemeriksaan-keamanan', 'Kunjungan', 'Pemeriksaan Keamanan', 'fa-shield-halved', ''],
+    ['ramah-disabilitas', 'Kunjungan', 'Layanan Kunjungan Ramah Disabilitas', 'fa-universal-access', ''],
+    ['bantuan-pengunjung', 'Kunjungan', 'Bantuan Pengunjung', 'fa-handshake-angle', ''],
+    ['remisi', 'Hak Warga Binaan', 'Informasi Remisi', 'fa-scale-balanced', hak],
+    ['integrasi', 'Hak Warga Binaan', 'Informasi Integrasi', 'fa-door-open', hak],
+    ['pembebasan-bersyarat', 'Hak Warga Binaan', 'Pembebasan Bersyarat', 'fa-unlock', hak],
+    ['cuti-bersyarat', 'Hak Warga Binaan', 'Cuti Bersyarat', 'fa-person-walking-arrow-right', hak],
+    ['cuti-menjelang-bebas', 'Hak Warga Binaan', 'Cuti Menjelang Bebas', 'fa-hourglass-half', hak],
+    ['hak-warga-binaan', 'Hak Warga Binaan', 'Hak Warga Binaan Lainnya', 'fa-hand-holding-heart', hak],
+    ['permohonan-informasi', 'Informasi Publik', 'Permohonan Informasi Publik', 'fa-file-circle-question', ''],
+    ['standar-pelayanan', 'Informasi Publik', 'Standar Pelayanan', 'fa-list-check', ''],
+    ['maklumat-pelayanan', 'Informasi Publik', 'Maklumat Pelayanan', 'fa-bullhorn', ''],
+    ['informasi-kinerja', 'Informasi Publik', 'Informasi Kinerja', 'fa-chart-line', ''],
+    ['pengaduan-masyarakat', 'Pengaduan', 'Pengaduan Masyarakat', 'fa-comments', ''],
+    ['prosedur-pengaduan', 'Pengaduan', 'Tata Cara dan Tindak Lanjut Pengaduan', 'fa-diagram-project', '']
+  ].forEach(function (s, i) {
+    addRow_('Pelayanan', { ID: s[0], Kelompok: s[1], Nama: s[2], Ikon: s[3], Ringkasan: s[4], Urutan: String(i + 1), Aktif: 'Ya' });
+  });
+}
+
+// ---------------------------------------------------------------------
+//  KONTEN BAWAAN RESMI: jadwal & syarat kunjungan, penitipan barang, profil (sejarah, visi-misi, dll.)
+//  Hanya mengisi kolom yang MASIH KOSONG. Teks yang sudah diedit petugas tidak ditimpa.
+//  Bisa juga dijalankan manual: Run > isiKontenBawaan
+// ---------------------------------------------------------------------
+function isiKontenBawaan() { withLock_(function () { isiKontenBawaan_(); bersihCache_(); }); Logger.log('Konten bawaan terisi (hanya kolom yang kosong).'); }
+function isiKontenBawaan_() {
+  const WAKTU = 'Senin s.d. Sabtu, pukul 09.00 - 12.00 WIB. Hari Minggu dan libur nasional layanan ditiadakan.';
+
+  // --- Pengaturan: jam layanan & jadwal sesi kunjungan (Senin-Sabtu, pagi) ---
+  table_('Pengaturan').forEach(function (r) {
+    if (r.Kunci === 'Jam_Layanan' && !String(r.Nilai || '').trim()) {
+      r.Nilai = 'Kunjungan dan penitipan barang: ' + WAKTU; setRow_('Pengaturan', r._row, r);
+    }
+    if (r.Kunci === 'Jadwal_Kunjungan') {
+      const j = jsonSafe_(r.Nilai, {});
+      if (!j || typeof j !== 'object' || !Object.keys(j).length) {
+        const sesi = function () { return [{ nama: 'Pagi', jam: '09.00 - 12.00', kuota: 30 }]; };  // KUOTA 30: sesuaikan di menu Pengaturan Kunjungan
+        r.Nilai = JSON.stringify({ '1': sesi(), '2': sesi(), '3': sesi(), '4': sesi(), '5': sesi(), '6': sesi() });  // 0 = Minggu: tidak ada sesi
+        setRow_('Pengaturan', r._row, r);
+      }
+    }
+  });
+
+  // --- Pelayanan: isi hanya kolom yang kosong ---
+  const lay = {
+    'jadwal-kunjungan': {
+      Ringkasan: 'Layanan kunjungan dan penitipan barang dibuka Senin sampai Sabtu pagi, pukul 09.00 - 12.00 WIB.',
+      Waktu: WAKTU,
+      Persyaratan: 'Layanan ditiadakan pada hari Minggu dan libur nasional.\nPengunjung wajib memenuhi syarat dan ketentuan kunjungan (lihat halaman Persyaratan Pengunjung).'
+    },
+    'persyaratan-kunjungan': {
+      Ringkasan: 'Syarat dan ketentuan kunjungan di Lapas Kelas III Lhoknga, termasuk syarat khusus bagi tahanan.',
+      Waktu: WAKTU,
+      Persyaratan: [
+        'Pengunjung merupakan keluarga inti Narapidana atau Tahanan dan wajib membawa KTP/SIM/Paspor tanpa terkecuali.',
+        'Pengunjung wajib mengenakan pakaian sopan dan rapi.',
+        'Pengunjung wajib digeledah badan dan barang bawaan oleh petugas.',
+        'Pengunjung wajib memelihara keamanan, kebersihan, dan ketertiban serta bersikap sopan/santun.',
+        'Pengunjung wajib mematuhi batas waktu kunjungan yang telah ditentukan.',
+        'Khusus tahanan: apabila warga binaan yang dikunjungi masih berstatus tahanan, pengunjung wajib menunjukkan surat izin berkunjung dari pihak penahan (Kepolisian/Kejaksaan/Pengadilan/BNN).',
+        'Khusus kuasa hukum tahanan: wajib memperlihatkan surat kuasa sebagai dasar pendampingan hukum.',
+        'Pengunjung wajib mematuhi seluruh tata tertib dan ketentuan yang berlaku di Lapas Kelas III Lhoknga.',
+        'Apabila pengunjung bersikap arogan, tidak kooperatif, atau tidak mematuhi peraturan yang berlaku di dalam Lapas, maka pihak Lapas berhak menolak kunjungan.'
+      ].join('\n')
+    },
+    'barang-bawaan': {
+      Ringkasan: 'Ketentuan membawa dan menitipkan barang saat berkunjung.',
+      Waktu: WAKTU,
+      Persyaratan: [
+        'Pengunjung wajib menitipkan barang berharga, alat komunikasi, serta barang berharga lainnya.',
+        'Pengunjung dilarang keras membawa benda/barang terlarang ke dalam Lapas (senjata api/tajam, narkoba, minuman beralkohol, dan lain-lain).',
+        'Penitipan barang melalui jasa pihak ketiga seperti Gojek, Grab, Maxim, dan sejenisnya TIDAK DIPERBOLEHKAN.',
+        'Pengiriman barang melalui jasa ekspedisi seperti JNT, JNE, dan SPX DIPERBOLEHKAN.'
+      ].join('\n')
+    },
+    'pemeriksaan-keamanan': {
+      Ringkasan: 'Setiap pengunjung diperiksa demi keamanan dan ketertiban bersama.',
+      Persyaratan: 'Pengunjung wajib digeledah badan dan barang bawaan oleh petugas.\nPengunjung dilarang membawa benda/barang terlarang ke dalam Lapas.'
+    }
+  };
+  table_('Pelayanan').forEach(function (r) {
+    const d = lay[r.ID]; if (!d) return;
+    let ubah = false;
+    Object.keys(d).forEach(function (k) { if (!String(r[k] || '').trim()) { r[k] = d[k]; ubah = true; } });
+    if (ubah) setRow_('Pelayanan', r._row, r);
+  });
+
+  // --- Halaman Profil: Visi dan Misi (mengikuti Kementerian Imigrasi dan Pemasyarakatan / Ditjenpas, Renstra 2025-2029) ---
+  const visiMisi =
+    '<h2>Visi</h2><p>&ldquo;Terwujudnya Penegakan Hukum dan Pelayanan Keimigrasian dan Pemasyarakatan untuk Stabilitas Keamanan yang Tangguh menuju Indonesia Emas 2045&rdquo;.</p>' +
+    '<h2>Misi</h2><ol>' +
+    '<li>Mewujudkan penegakan hukum dan pelayanan serta jaminan pelindungan Imigrasi dan Pemasyarakatan yang transparan dan berkeadilan.</li>' +
+    '<li>Meningkatkan kapasitas kelembagaan Imigrasi dan Pemasyarakatan yang modern, profesional, dan berintegritas.</li></ol>' +
+    '<h2>Tujuan</h2><ol>' +
+    '<li>Menciptakan penegakan dan pelayanan hukum untuk mendukung kedaulatan negara serta reintegrasi sosial secara transparan dan berkeadilan.</li>' +
+    '<li>Menciptakan sistem keimigrasian dan pemasyarakatan yang modern, terintegrasi, dan akuntabel melalui peningkatan kompetensi dan profesionalisme sumber daya manusia yang berintegritas, responsif, dan adaptif di bidang Imigrasi dan Pemasyarakatan.</li></ol>' +
+    '<p><em>Sumber: Visi, Misi, dan Tujuan Kementerian Imigrasi dan Pemasyarakatan Republik Indonesia 2025&ndash;2029, yang menjadi acuan seluruh unit Pemasyarakatan.</em></p>';
+  const profil = {
+  "sejarah": "<h2>Sejarah Lapas Kelas III Lhoknga</h2><h3>Penjara peninggalan Belanda dan pengaktifan kembali (1982)</h3><p>Lapas Lhoknga awalnya merupakan penjara peninggalan masa kolonial Belanda. Penjara ini diaktifkan kembali oleh Pemerintah Indonesia pada tahun 1982.</p><h3>Gempa dan tsunami (2004)</h3><p>Pada 26 Desember 2004, gempa dan tsunami yang melanda Aceh menghancurkan seluruh sarana dan prasarana Lapas ini. Bencana tersebut juga merenggut nyawa puluhan penghuni dan petugas, termasuk tokoh pejuang referendum Aceh, Cut Nurasyikin.</p><h3>Rekonstruksi dan perubahan nomenklatur (2007&ndash;2019)</h3><p>Kompleks bangunan dibangun kembali oleh BRR NAD-Nias pada tahun 2007. Pada tahun 2010 hingga 2019, instansi ini beroperasi dengan nama Cabang Rumah Tahanan Negara (Rutan) Jantho di Lhoknga.</p><h3>Menjadi Lapas Kelas III (2020)</h3><p>Sejak Januari 2020, statusnya resmi ditingkatkan menjadi Lembaga Pemasyarakatan Kelas III Lhoknga.</p><h2>Sejarah Singkat Sistem Pemasyarakatan</h2><p>Indonesia adalah negara yang berdasarkan Pancasila menjunjung tinggi nilai-nilai kemanusiaan. Konsep pembalasan dan penjeraan dalam sistem kepenjaraan sebagai bentuk pemidanaan adalah warisan kolonial yang tidak selaras lagi dengan semangat dan jati diri bangsa Indonesia. Pada tanggal 5 Juli 1963 istilah Pemasyarakatan pertama kali diperkenalkan melalui pidato &ldquo;Pohon Beringin Pengayoman&rdquo; oleh Bapak Sahardjo, SH dalam penganugerahan gelar Doctor Honoris Causa oleh Universitas Indonesia.</p><p>Di bawah Pohon Beringin Pengayoman, tujuan hukum pidana adalah mengayomi masyarakat. Bukan hanya masyarakat umum yang diayomi dari tindak kejahatan, namun masyarakat yang tersesat juga diayomi dengan memberikan bekal hidup, membimbing agar bertobat, dan mendidik supaya menjadi anggota masyarakat yang berguna. Dengan singkat, tujuan pidana penjara ialah Pemasyarakatan.</p><p>Peneguhan Pemasyarakatan sebagai sistem pengganti Sistem Kepenjaraan dideklarasikan pada tanggal 27 April 1964 dalam Konferensi Jawatan Kepenjaraan di Lembang, Bandung. Pemasyarakatan dinyatakan sebagai suatu sistem perlakuan terhadap para pelanggar hukum dan pengejawantahan keadilan yang bertujuan mencapai reintegrasi sosial, yaitu pulihnya kesatuan hubungan hidup, kehidupan, dan penghidupan Warga Binaan Pemasyarakatan.</p><p>Transformasi menuju Sistem Pemasyarakatan dilegitimasi melalui Undang-Undang Nomor 12 Tahun 1995 tentang Pemasyarakatan. Seiring waktu, tuntutan tugas Pemasyarakatan sebagai bagian dari sistem peradilan pidana harus merespons dinamika sosial dengan perubahan undang-undang.</p><p>Undang-Undang Nomor 22 Tahun 2022 tentang Pemasyarakatan menjawab perluasan peran dan tanggung jawab dalam memberikan perlakuan terhadap tersangka, terdakwa, dan terpidana, yaitu sejak proses peradilan sampai menjalankan pidana berdasarkan putusan pengadilan yang telah berkekuatan hukum tetap. Sistem Pemasyarakatan mewujudkan jaminan pelindungan terhadap hak Tahanan dan Anak serta meningkatkan kualitas kepribadian dan kemandirian Warga Binaan agar menyadari kesalahan, memperbaiki diri, dan tidak mengulangi tindak pidana, sehingga dapat diterima kembali oleh masyarakat, hidup secara wajar sebagai warga yang berkualitas, taat hukum, bertanggung jawab, dan aktif berperan dalam pembangunan, sekaligus memberikan pelindungan kepada masyarakat dari pengulangan tindak pidana.</p>",
+  "profil-singkat": "<h2>Profil Singkat</h2><ul><li><strong>Nama resmi:</strong> Lembaga Pemasyarakatan Kelas III Lhoknga.</li><li><strong>Lokasi:</strong> Jalan Nasional Banda Aceh-Meulaboh, Kecamatan Lhoknga, Kabupaten Aceh Besar.</li><li><strong>Instansi induk:</strong> Kantor Wilayah Direktorat Jenderal Pemasyarakatan Aceh, di bawah Direktorat Jenderal Pemasyarakatan, Kementerian Imigrasi dan Pemasyarakatan Republik Indonesia.</li><li><strong>Warga binaan:</strong> Lapas Kelas III menampung narapidana dan tahanan. Perkara yang ditangani meliputi tindak pidana narkotika, pidana umum lainnya, serta pelanggaran Qanun syariat Islam Aceh.</li><li><strong>Suasana pembinaan:</strong> teduh, ramah, dan religius.</li><li><strong>Layanan kesehatan:</strong> Klinik Lapas yang berizin resmi melayani Warga Binaan Pemasyarakatan.</li></ul>",
+  "tugas-fungsi": "<h2>Tugas Pokok</h2><p>Sebagai Unit Pelaksana Teknis (UPT) Pemasyarakatan, Lapas Kelas III Lhoknga mengacu pada ketentuan undang-undang pemasyarakatan dengan tugas pokok melaksanakan pembinaan narapidana.</p><h2>Fungsi</h2><ul><li><strong>Pembinaan kepribadian:</strong> melaksanakan pembinaan mental, spiritual, dan keagamaan. Lapas Lhoknga bekerja sama dengan Kementerian Agama Kabupaten Aceh Besar untuk meningkatkan keimanan dan membentuk moral warga binaan sebelum kembali ke masyarakat.</li><li><strong>Pembinaan kemandirian:</strong> menyediakan pelatihan keterampilan kerja, seperti kerajinan, pertanian, atau usaha produktif, agar warga binaan memiliki bekal ekonomi saat bebas.</li><li><strong>Keamanan dan ketertiban:</strong> melakukan pengamanan, pengawasan blok hunian, dan deteksi dini melalui patroli fisik serta pemantauan CCTV demi menjaga situasi Lapas yang kondusif.</li><li><strong>Pemenuhan hak tahanan dan warga binaan:</strong> menjamin hak-hak tahanan dan narapidana, termasuk hak integrasi (asimilasi, pembebasan bersyarat, cuti bersyarat) serta pelayanan administrasi hukum.</li></ul>",
+  "nilai-organisasi": "<h2>Nilai Organisasi PASTI</h2><p>Sebagai bagian dari Direktorat Jenderal Pemasyarakatan, Lapas Kelas III Lhoknga menerapkan nilai organisasi <strong>PASTI</strong>:</p><ul><li><strong>Profesional:</strong> bekerja sesuai kompetensi dan prosedur hukum yang berlaku.</li><li><strong>Akuntabel:</strong> setiap program kerja dan anggaran dapat dipertanggungjawabkan secara transparan.</li><li><strong>Sinergi:</strong> membangun kerja sama yang solid, baik internal maupun eksternal, seperti dengan aparat penegak hukum, Kejaksaan Negeri, dan Kementerian Agama.</li><li><strong>Transparan:</strong> terbuka dalam memberikan informasi layanan publik dan hak-hak warga binaan.</li><li><strong>Inovatif:</strong> mengembangkan metode kerja baru untuk efisiensi pelayanan pemasyarakatan.</li></ul>",
+  "budaya-kerja": "<h2>Budaya Kerja</h2><p>Budaya kerja Lapas Kelas III Lhoknga berpusat pada Core Values ASN <strong>BerAKHLAK</strong>: Berorientasi Pelayanan, Akuntabel, Kompeten, Harmonis, Loyal, Adaptif, dan Kolaboratif.</p><p>Di lapangan, budaya kerja ini diwujudkan melalui:</p><ul><li><strong>Pendekatan humanis dan religius:</strong> mengubah kesan penjara yang angker dengan penataan lingkungan yang asri serta pendekatan kekeluargaan dan keagamaan.</li><li><strong>Kedisiplinan tinggi:</strong> penegakan apel pagi, upacara hari besar nasional, dan komitmen penuh terhadap deteksi dini gangguan keamanan.</li><li><strong>Peningkatan kualitas SDM:</strong> penguatan tata kelola administrasi dan pengawasan internal oleh jajaran struktural demi meminimalkan pelanggaran integritas (Zero HALINAR: Handphone, Pungli, dan Narkoba).</li></ul>"
+};
+  profil['visi-misi'] = visiMisi;
+  table_('Halaman').forEach(function (h) {
+    const isi = profil[h.Slug];
+    if (isi && !String(h.Isi || '').replace(/<[^>]*>/g, '').trim()) {
+      h.Isi = isi; h.Diubah = now_(); h.Diubah_Oleh = 'sistem'; setRow_('Halaman', h._row, h);
+    }
+  });
+}
+
+function seedProgram_() {
+  if (table_('Program').length) return;
+  [
+    ['Pembinaan Kepribadian dan Kerohanian', 'Pembinaan Kepribadian', 'fa-hands-praying'], ['Pembinaan Kemandirian', 'Pembinaan Kemandirian', 'fa-hammer'],
+    ['Ketahanan Pangan', 'Ketahanan Pangan', 'fa-seedling'], ['Pelatihan Keterampilan Kerja', 'Pembinaan Kemandirian', 'fa-screwdriver-wrench'],
+    ['Produk Hasil Karya Warga Binaan', 'Pembinaan Kemandirian', 'fa-box-open'], ['Inovasi Pelayanan Publik', 'Inovasi', 'fa-lightbulb'],
+    ['Penguatan Keamanan dan Ketertiban', 'Keamanan', 'fa-shield-halved'], ['Pelayanan Kunjungan Ramah HAM dan Inklusif', 'Pelayanan', 'fa-universal-access']
+  ].forEach(function (p, i) { addRow_('Program', { ID: 'PR-' + (i + 1), Judul: p[0], Kategori: p[1], Ikon: p[2], Deskripsi: '', Foto_URL: '', Capaian: '', Urutan: String(i + 1), Aktif: 'Ya' }); });
+}
+
+// =====================================================================
+//  AUTENTIKASI & SESI  (password di-hash SHA-256 + salt, sesi di cache)
+// =====================================================================
+function hash_(pw, salt) {
+  let d = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt + ':' + pw);
+  const sb = Utilities.newBlob(salt).getBytes();
+  for (let i = 0; i < HASH_ROUNDS; i++) d = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, d.concat(sb));
+  return d.map(function (b) { return ('0' + (b & 0xff).toString(16)).slice(-2); }).join('');
+}
+function cekPasswordBaru_(p) {
+  p = String(p || '');
+  if (p.length < 8) fail_('Password baru minimal 8 karakter.');
+  if (!/[A-Za-z]/.test(p) || !/\d/.test(p)) fail_('Password baru harus mengandung huruf dan angka.');
+  if (p.length > 100) fail_('Password terlalu panjang.');
+}
+function userPublik_(u) { return { username: u.username, nama: u.nama, role: u.role, jabatan: u.jabatan, wajibGanti: !!u.wajib }; }
+
+function auth_login(username, password) {
+  return safe_(function () {
+    username = str_(username, 60).toLowerCase(); password = String(password || '');
+    if (!username || !password) fail_('Username dan password wajib diisi.');
+    const cache = CacheService.getScriptCache(), fk = 'fail_' + username;
+    const fails = int_(cache.get(fk), 0);
+    if (fails >= 5) fail_('Terlalu banyak percobaan gagal. Silakan coba lagi dalam 15 menit.');
+    const u = table_('Users').filter(function (r) { return r.Username.toLowerCase() === username; })[0];
+    if (!u || u.Status !== 'Aktif' || hash_(password, u.Salt) !== u.Password_Hash) {
+      cache.put(fk, String(fails + 1), 900);
+      fail_('Username atau password salah, atau akun tidak aktif.');
+    }
+    cache.remove(fk);
+    const token = Utilities.getUuid() + Utilities.getUuid().replace(/-/g, '');
+    const sess = { username: u.Username, nama: u.Nama, role: u.Role, jabatan: u.Jabatan, iat: Date.now(), wajib: u.Wajib_Ganti === 'Ya' };
+    cache.put('sess_' + token, JSON.stringify(sess), SESI_TTL);
+    withLock_(function () { const r = table_('Users').filter(function (x) { return x.Username === u.Username; })[0]; if (r) { r.Terakhir_Login = now_(); setRow_('Users', r._row, r); } });
+    log_(sess, 'Login', '');
+    return { token: token, user: userPublik_(sess) };
+  });
+}
+
+function auth_(token, roles, allowWajib) {
+  token = String(token || '');
+  const cache = CacheService.getScriptCache();
+  const raw = token.length > 20 ? cache.get('sess_' + token) : null;
+  if (!raw) fail_('Sesi Anda telah berakhir. Silakan masuk kembali.', 'SESI');
+  const s = JSON.parse(raw);
+  const rev = cache.get('rev_' + s.username);
+  if (rev && Number(rev) > s.iat) { cache.remove('sess_' + token); fail_('Sesi Anda tidak berlaku lagi. Silakan masuk kembali.', 'SESI'); }
+  if (s.wajib && !allowWajib) fail_('Anda wajib mengganti password terlebih dahulu.', 'GANTI');
+  if (roles && roles.length && s.role !== R_SUPER && roles.indexOf(s.role) < 0) fail_('Anda tidak memiliki hak akses untuk fitur ini.', 'AKSES');
+  cache.put('sess_' + token, raw, SESI_TTL);
+  return s;
+}
+function cabutSesi_(username) { CacheService.getScriptCache().put('rev_' + username, String(Date.now()), SESI_TTL); }
+
+function auth_me(token) { return safe_(function () { return userPublik_(auth_(token, null, true)); }); }
+function auth_logout(token) { return safe_(function () { try { const s = auth_(token, null, true); log_(s, 'Logout', ''); } catch (e) {} CacheService.getScriptCache().remove('sess_' + String(token || '')); return true; }); }
+
+function auth_ganti(token, lama, baru) {
+  return safe_(function () {
+    const s = auth_(token, null, true);
+    cekPasswordBaru_(baru);
+    withLock_(function () {
+      const u = table_('Users').filter(function (r) { return r.Username === s.username; })[0];
+      if (!u) fail_('Akun tidak ditemukan.');
+      if (hash_(String(lama || ''), u.Salt) !== u.Password_Hash) fail_('Password lama tidak sesuai.');
+      if (String(lama) === String(baru)) fail_('Password baru harus berbeda dari password lama.');
+      const salt = Utilities.getUuid();
+      u.Salt = salt; u.Password_Hash = hash_(String(baru), salt); u.Wajib_Ganti = 'Tidak';
+      setRow_('Users', u._row, u);
+    });
+    cabutSesi_(s.username);
+    s.iat = Date.now() + 1; s.wajib = false;
+    CacheService.getScriptCache().put('sess_' + token, JSON.stringify(s), SESI_TTL);
+    log_(s, 'Ganti password', '');
+    return userPublik_(s);
+  }, true);
+}
+
+// =====================================================================
+//  SANITASI HTML & PENYIMPANAN BERKAS (Google Drive)
+// =====================================================================
+function sanitizeHtml_(html) {
+  html = String(html || '');
+  if (html.length > 45000) fail_('Isi terlalu panjang (maksimal 45.000 karakter). Pecah menjadi beberapa tulisan.');
+  html = html.replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<(script|style|iframe|object|embed|form|link|meta|svg|math|noscript|template)\b[\s\S]*?<\/\1\s*>/gi, '')
+    .replace(/<\/?(script|style|iframe|object|embed|form|link|meta|svg|math|noscript|template)\b[^>]*>/gi, '');
+  const OK = { p: [], br: [], strong: [], b: [], em: [], i: [], u: [], h2: [], h3: [], h4: [], ul: [], ol: [], li: [], blockquote: [], a: ['href'], img: ['src', 'alt'], figure: [], figcaption: [], table: [], thead: [], tbody: [], tr: [], th: [], td: [], hr: [], span: [], div: [], sub: [], sup: [] };
+  return html.replace(/<\/?([a-zA-Z][a-zA-Z0-9]*)\b([^>]*)>/g, function (m, tag, attrs) {
+    tag = tag.toLowerCase();
+    if (!OK[tag]) return '';
+    if (m.charAt(1) === '/') return '</' + tag + '>';
+    let out = '<' + tag;
+    OK[tag].forEach(function (a) {
+      const mm = attrs.match(new RegExp('(?:^|[\\s"\'])' + a + '\\s*=\\s*(?:"([^"]*)"|\'([^\']*)\'|([^\\s>]+))', 'i'));
+      if (!mm) return;
+      let v = (mm[1] || mm[2] || mm[3] || '').trim();
+      if (a === 'href' && !/^(https?:\/\/|mailto:|tel:|#)/i.test(v)) return;
+      if (a === 'src' && !/^https:\/\//i.test(v)) return;
+      out += ' ' + a + '="' + v.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '"';
+    });
+    if (tag === 'a') out += ' target="_blank" rel="noopener noreferrer"';
+    return out + (tag === 'br' || tag === 'hr' || tag === 'img' ? ' />' : '>');
+  });
+}
+
+function getSubfolder_(name) {
+  const props = PropertiesService.getScriptProperties(), key = 'FOLDER_' + name;
+  const id = props.getProperty(key);
+  if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }
+  let root;
+  try { root = DriveApp.getFolderById(DRIVE_FOLDER_ID); }
+  catch (e) { fail_('Folder Google Drive tidak dapat diakses. Pastikan akun pemilik script memiliki akses Editor ke folder dokumen.'); }
+  const it = root.getFoldersByName(name);
+  const f = it.hasNext() ? it.next() : root.createFolder(name);
+  props.setProperty(key, f.getId());
+  return f;
+}
+
+const MIME_GAMBAR = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const MIME_DOKUMEN = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
+
+function magicOk_(b, mime) {
+  const h = function (i) { return (b[i] & 0xff); };
+  if (mime === 'image/jpeg') return h(0) === 0xFF && h(1) === 0xD8;
+  if (mime === 'image/png') return h(0) === 0x89 && h(1) === 0x50 && h(2) === 0x4E && h(3) === 0x47;
+  if (mime === 'image/gif') return h(0) === 0x47 && h(1) === 0x49 && h(2) === 0x46;
+  if (mime === 'image/webp') return h(0) === 0x52 && h(1) === 0x49 && h(2) === 0x46 && h(3) === 0x46;
+  if (mime === 'application/pdf') return h(0) === 0x25 && h(1) === 0x50 && h(2) === 0x44 && h(3) === 0x46;
+  if (/openxml/.test(mime)) return h(0) === 0x50 && h(1) === 0x4B;
+  return h(0) === 0xD0 && h(1) === 0xCF;
+}
+
+// opts: {folder, allowed[], max, prefix, publik}
+function simpanBerkas_(file, opts) {
+  if (!file || !file.bytes) fail_('Berkas tidak terbaca. Silakan pilih ulang berkas.');
+  const mime = str_(file.mimeType, 100).toLowerCase();
+  if (opts.allowed.indexOf(mime) < 0) fail_('Jenis berkas tidak diizinkan. Gunakan: ' + (opts.allowed === MIME_GAMBAR ? 'JPG, PNG, WEBP, atau GIF.' : opts.labelJenis || 'format yang didukung.'));
+  const bytes = Utilities.base64Decode(String(file.bytes));
+  if (bytes.length > opts.max) fail_('Ukuran berkas melebihi batas ' + Math.round(opts.max / 1048576) + ' MB.');
+  if (bytes.length < 16 || !magicOk_(bytes, mime)) fail_('Isi berkas tidak sesuai dengan jenisnya.');
+  const nama = (opts.prefix || '') + str_(file.name, 120).replace(/[^\w.\- ]/g, '_').slice(0, 80);
+  const f = getSubfolder_(opts.folder).createFile(Utilities.newBlob(bytes, mime, nama));
+  let warn = '';
+  if (opts.publik) { try { f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) { warn = 'Berkas tersimpan, tetapi pengaturan akses publik ditolak oleh kebijakan Google Drive Anda.'; } }
+  const id = f.getId();
+  return { id: id, mime: mime, name: nama, warn: warn, url: mime.indexOf('image/') === 0 ? 'https://lh3.googleusercontent.com/d/' + id : 'https://drive.google.com/file/d/' + id + '/view' };
+}
+function bacaBerkasPrivat_(id) {
+  if (!id) fail_('Berkas tidak ada.');
+  const blob = DriveApp.getFileById(id).getBlob();
+  return { mime: blob.getContentType(), name: blob.getName(), dataUrl: 'data:' + blob.getContentType() + ';base64,' + Utilities.base64Encode(blob.getBytes()) };
+}
+
+function kirimEmail_(to, subject, isiHtml) {
+  try {
+    to = str_(to, 200);
+    if (!validEmail_(to)) return;
+    if (MailApp.getRemainingDailyQuota() < 5) return;
+    const nama = cfg_().Nama_Instansi || 'Lapas Kelas III Lhoknga';
+    MailApp.sendEmail({ to: to, subject: '[' + nama + '] ' + subject, name: nama, htmlBody: '<div style="font-family:Arial,sans-serif;font-size:14px;color:#01162a;line-height:1.6">' + isiHtml + '<hr style="border:none;border-top:1px solid #dbe7f3;margin:18px 0"><p style="font-size:12px;color:#64748b">Pesan otomatis dari website resmi ' + esc_(nama) + '. Mohon tidak membalas email ini.</p></div>' });
+  } catch (e) { console.log('Email gagal: ' + e); }
+}
+function rateLimit_(key, maks, ttl, pesan) {
+  const c = CacheService.getScriptCache(), n = int_(c.get(key), 0);
+  if (n >= maks) fail_(pesan || 'Terlalu banyak permintaan. Silakan coba lagi nanti.');
+  c.put(key, String(n + 1), ttl);
+}
+
+// =====================================================================
+//  API PUBLIK : DATA UMUM
+// =====================================================================
+function publik_init() {
+  return safe_(function () {
+    return { cfg: cfgPub_(), konst: { kategoriBerita: KATEGORI_BERITA, kelompokLayanan: KELOMPOK_LAYANAN, kategoriDokumen: KATEGORI_DOKUMEN, kategoriPengaduan: KATEGORI_PENGADUAN, kebutuhan: KEBUTUHAN_KHUSUS, hubungan: HUBUNGAN } };
+  });
+}
+
+function aktif_(r) { return String(r.Aktif).toLowerCase() !== 'tidak'; }
+function urut_(a, b) { return (int_(a.Urutan, 999) - int_(b.Urutan, 999)); }
+
+// ---- berita ----
+function beritaPublik_(b, now) {
+  if (b.Status === 'Terbit') return !b.Tgl_Terbit || b.Tgl_Terbit <= now;
+  if (b.Status === 'Terjadwal') return !!b.Tgl_Jadwal && b.Tgl_Jadwal <= now;
+  return false;
+}
+function tglTampil_(b) { return (b.Status === 'Terbit' ? b.Tgl_Terbit : b.Tgl_Jadwal) || b.Dibuat; }
+function metaBerita_(b) { return { id: b.ID, slug: b.Slug, judul: b.Judul, kategori: b.Kategori, ringkasan: b.Ringkasan, foto: b.Foto_URL, tanggal: tglTampil_(b), penulis: b.Penulis, dilihat: int_(b.Dilihat, 0) }; }
+function beritaTerbit_() {
+  const now = now_();
+  return table_('Berita').filter(function (b) { return beritaPublik_(b, now); }).sort(function (a, b) { return tglTampil_(b).localeCompare(tglTampil_(a)); });
+}
+function cariBarisKunci_(sheetName, key) {
+  const s = sh_(sheetName), last = s.getLastRow();
+  if (last < 2) return 0;
+  const v = s.getRange(2, 1, last - 1, 1).getValues();
+  for (let i = 0; i < v.length; i++) if (cell_(v[i][0]) === key) return i + 2;
+  return 0;
+}
+function isiBerita_(id) { const r = cariBarisKunci_('Berita_Isi', id); return r ? cell_(sh_('Berita_Isi').getRange(r, 2).getValue()) : ''; }
+
+function publik_beranda() {
+  return safe_(function () {
+    let d = cget_('pub_beranda');
+    if (d) return d;
+    const terbit = beritaTerbit_();
+    d = {
+      berita: terbit.slice(0, 6).map(metaBerita_),
+      program: table_('Program').filter(aktif_).sort(urut_).slice(0, 8).map(function (p) { return { id: p.ID, judul: p.Judul, kategori: p.Kategori, ikon: p.Ikon, deskripsi: p.Deskripsi, foto: p.Foto_URL, capaian: p.Capaian }; }),
+      galeri: table_('Galeri').filter(aktif_).sort(function (a, b) { return b.Tanggal.localeCompare(a.Tanggal); }).slice(0, 8).map(function (g) { return { id: g.ID, judul: g.Judul, foto: g.Foto_URL, album: g.Album, tanggal: g.Tanggal }; }),
+      stat: { berita: terbit.length, program: table_('Program').filter(aktif_).length, dokumen: table_('Dokumen').filter(aktif_).length }
+    };
+    cput_('pub_beranda', d, 120);
+    return d;
+  });
+}
+
+function publik_berita(p) {
+  return safe_(function () {
+    p = p || {};
+    const q = str_(p.q, 80).toLowerCase(), kat = str_(p.kategori, 80), dari = str_(p.dari, 10), sampai = str_(p.sampai, 10);
+    let list = beritaTerbit_();
+    if (kat) list = list.filter(function (b) { return b.Kategori === kat; });
+    if (q) list = list.filter(function (b) { return (b.Judul + ' ' + b.Ringkasan + ' ' + b.Kategori).toLowerCase().indexOf(q) >= 0; });
+    if (isDate_(dari)) list = list.filter(function (b) { return tglTampil_(b).slice(0, 10) >= dari; });
+    if (isDate_(sampai)) list = list.filter(function (b) { return tglTampil_(b).slice(0, 10) <= sampai; });
+    const per = 9, total = list.length, pages = Math.max(1, Math.ceil(total / per));
+    const page = Math.min(Math.max(int_(p.page, 1), 1), pages);
+    return { items: list.slice((page - 1) * per, page * per).map(metaBerita_), total: total, page: page, pages: pages };
+  });
+}
+
+function publik_beritaDetail(slug) {
+  return safe_(function () {
+    slug = str_(slug, 120);
+    const list = beritaTerbit_();
+    const b = list.filter(function (x) { return x.Slug === slug; })[0];
+    if (!b) fail_('Berita tidak ditemukan atau belum diterbitkan.', '404');
+    try { const s = sh_('Berita'); const col = SCHEMA.Berita.indexOf('Dilihat') + 1; if (cell_(s.getRange(b._row, 1).getValue()) === b.ID) s.getRange(b._row, col).setValue(String(int_(b.Dilihat, 0) + 1)); } catch (e) {}
+    let terkait = list.filter(function (x) { return x.ID !== b.ID && x.Kategori === b.Kategori; }).slice(0, 3);
+    if (terkait.length < 3) terkait = terkait.concat(list.filter(function (x) { return x.ID !== b.ID && x.Kategori !== b.Kategori; }).slice(0, 3 - terkait.length));
+    const m = metaBerita_(b);
+    m.isi = sanitizeHtml_(isiBerita_(b.ID));
+    m.galeri = jsonSafe_(b.Galeri, []).filter(function (u) { return /^https:\/\//.test(u); });
+    m.seoJudul = b.SEO_Judul; m.seoDeskripsi = b.SEO_Deskripsi;
+    return { berita: m, terkait: terkait.map(metaBerita_) };
+  });
+}
+
+// ---- profil & halaman ----
+function publik_halaman(slug) {
+  return safe_(function () {
+    slug = str_(slug, 80);
+    const key = 'hal_' + slug;
+    let h = cget_(key);
+    if (h) return h;
+    const r = table_('Halaman').filter(function (x) { return x.Slug === slug; })[0];
+    if (!r) fail_('Halaman tidak ditemukan.', '404');
+    h = { slug: r.Slug, judul: r.Judul, isi: sanitizeHtml_(r.Isi), diubah: r.Diubah };
+    cput_(key, h, 600);
+    return h;
+  });
+}
+function publik_struktur() {
+  return safe_(function () {
+    let d = cget_('pub_struktur');
+    if (d) return d;
+    const c = cfg_();
+    d = {
+      kepala: { nama: c.Kepala_Nama, jabatan: c.Kepala_Jabatan, foto: c.Kepala_Foto },
+      pejabat: table_('Pejabat').filter(aktif_).sort(urut_).map(function (p) { return { id: p.ID, nama: p.Nama, jabatan: p.Jabatan, foto: p.Foto_URL, atasan: p.Atasan_ID, tipe: p.Tipe, profil: p.Profil }; })
+    };
+    cput_('pub_struktur', d, 600);
+    return d;
+  });
+}
+
+// ---- pelayanan ----
+function barisList_(s) { return String(s || '').split(/\r?\n/).map(function (x) { return x.trim(); }).filter(Boolean); }
+function publik_pelayanan() {
+  return safe_(function () {
+    let d = cget_('pub_pelayanan');
+    if (d) return d;
+    d = table_('Pelayanan').filter(aktif_).sort(urut_).map(function (p) { return { id: p.ID, kelompok: p.Kelompok, nama: p.Nama, ikon: p.Ikon, ringkasan: p.Ringkasan }; });
+    cput_('pub_pelayanan', d, 600);
+    return d;
+  });
+}
+function publik_pelayananDetail(id) {
+  return safe_(function () {
+    id = str_(id, 100);
+    const p = table_('Pelayanan').filter(function (x) { return x.ID === id && aktif_(x); })[0];
+    if (!p) fail_('Layanan tidak ditemukan.', '404');
+    return {
+      id: p.ID, kelompok: p.Kelompok, nama: p.Nama, ikon: p.Ikon, ringkasan: p.Ringkasan, tujuan: p.Tujuan,
+      persyaratan: barisList_(p.Persyaratan), prosedur: barisList_(p.Prosedur), alur: barisList_(p.Alur), waktu: p.Waktu, biaya: p.Biaya,
+      dasarHukum: barisList_(p.Dasar_Hukum), dokumen: barisList_(p.Dokumen),
+      formulir: barisList_(p.Formulir).map(function (l) { const i = l.indexOf('|'); return i < 0 ? null : { judul: l.slice(0, i).trim(), url: l.slice(i + 1).trim() }; }).filter(function (f) { return f && /^https:\/\//.test(f.url); }),
+      faq: barisList_(p.FAQ).map(function (l) { const i = l.indexOf('|'); return i < 0 ? null : { q: l.slice(0, i).trim(), a: l.slice(i + 1).trim() }; }).filter(Boolean),
+      kontak: p.Kontak
+    };
+  });
+}
+
+function publik_program() {
+  return safe_(function () {
+    let d = cget_('pub_program');
+    if (d) return d;
+    d = table_('Program').filter(aktif_).sort(urut_).map(function (p) { return { id: p.ID, judul: p.Judul, kategori: p.Kategori, ikon: p.Ikon, deskripsi: p.Deskripsi, foto: p.Foto_URL, capaian: p.Capaian }; });
+    cput_('pub_program', d, 600);
+    return d;
+  });
+}
+function publik_galeri() {
+  return safe_(function () {
+    let d = cget_('pub_galeri');
+    if (d) return d;
+    d = table_('Galeri').filter(aktif_).sort(function (a, b) { return b.Tanggal.localeCompare(a.Tanggal); }).slice(0, 120).map(function (g) { return { id: g.ID, judul: g.Judul, foto: g.Foto_URL, album: g.Album, tanggal: g.Tanggal }; });
+    cput_('pub_galeri', d, 600);
+    return d;
+  });
+}
+function publik_dokumen(p) {
+  return safe_(function () {
+    p = p || {};
+    let all = cget_('pub_dokumen');
+    if (!all) {
+      all = table_('Dokumen').filter(aktif_).sort(function (a, b) { return b.Tanggal.localeCompare(a.Tanggal); }).slice(0, 300).map(function (d) { return { id: d.ID, judul: d.Judul, kategori: d.Kategori, deskripsi: d.Deskripsi, url: d.File_URL, tanggal: d.Tanggal }; });
+      cput_('pub_dokumen', all, 600);
+    }
+    const q = str_(p.q, 80).toLowerCase(), k = str_(p.kategori, 80);
+    return all.filter(function (d) { return (!k || d.kategori === k) && (!q || (d.judul + ' ' + d.deskripsi).toLowerCase().indexOf(q) >= 0); });
+  });
+}
+function publik_catatUnduh(id) {
+  return safe_(function () {
+    id = str_(id, 40);
+    const r = cariBarisKunci_('Dokumen', id);
+    if (!r) return false;
+    const col = SCHEMA.Dokumen.indexOf('Unduhan') + 1, s = sh_('Dokumen');
+    s.getRange(r, col).setValue(String(int_(s.getRange(r, col).getValue(), 0) + 1));
+    return true;
+  });
+}
+function publik_cari(q) {
+  return safe_(function () {
+    q = str_(q, 60).toLowerCase();
+    if (q.length < 2) fail_('Ketik minimal 2 huruf untuk mencari.');
+    const has = function (t) { return String(t).toLowerCase().indexOf(q) >= 0; };
+    return {
+      berita: beritaTerbit_().filter(function (b) { return has(b.Judul + ' ' + b.Ringkasan); }).slice(0, 12).map(metaBerita_),
+      layanan: table_('Pelayanan').filter(function (p) { return aktif_(p) && has(p.Nama + ' ' + p.Ringkasan + ' ' + p.Tujuan); }).slice(0, 12).map(function (p) { return { id: p.ID, nama: p.Nama, kelompok: p.Kelompok, ringkasan: p.Ringkasan }; }),
+      dokumen: table_('Dokumen').filter(function (d) { return aktif_(d) && has(d.Judul + ' ' + d.Deskripsi); }).slice(0, 12).map(function (d) { return { id: d.ID, judul: d.Judul, kategori: d.Kategori, url: d.File_URL }; }),
+      halaman: table_('Halaman').filter(function (h) { return has(h.Judul); }).slice(0, 8).map(function (h) { return { slug: h.Slug, judul: h.Judul, kelompok: h.Kelompok }; })
+    };
+  });
+}
+
+// =====================================================================
+//  API PUBLIK : KUNJUNGAN ONLINE
+// =====================================================================
+function jadwalHari_(c, d) {
+  const j = jsonSafe_(c.Jadwal_Kunjungan, {});
+  const arr = j[String(dow_(d))];
+  return Array.isArray(arr) ? arr.filter(function (s) { return s && s.nama; }) : [];
+}
+function liburMap_(c) {
+  const m = {};
+  barisList_(c.Libur_Kunjungan).forEach(function (l) {
+    const i = l.indexOf('|'), d = (i < 0 ? l : l.slice(0, i)).trim();
+    if (isDate_(d)) m[d] = (i < 0 ? '' : l.slice(i + 1).trim()) || 'Kunjungan ditiadakan';
+  });
+  return m;
+}
+function aktifKunjungan_(s) { return s === 'Menunggu Verifikasi' || s === 'Disetujui'; }
+function terpakai_(rows) {
+  const u = {};
+  rows.forEach(function (r) { if (aktifKunjungan_(r.Status)) { const k = r.Tgl_Kunjungan + '|' + r.Sesi; u[k] = (u[k] || 0) + 1; } });
+  return u;
+}
+const HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
+function publik_jadwal() {
+  return safe_(function () {
+    const c = cfg_(), libur = liburMap_(c), used = terpakai_(table_('Kunjungan'));
+    const min = Math.max(0, int_(c.Min_Hari_Daftar, 1)), max = Math.min(60, Math.max(min, int_(c.Maks_Hari_Daftar, 14))), t = today_(), days = [];
+    for (let i = min; i <= max; i++) {
+      const d = addDays_(t, i), sesi = jadwalHari_(c, d);
+      if (libur[d]) { days.push({ tanggal: d, hari: HARI[dow_(d)], libur: libur[d], sesi: [] }); continue; }
+      if (!sesi.length) continue;
+      days.push({ tanggal: d, hari: HARI[dow_(d)], libur: '', sesi: sesi.map(function (s) { const kuota = int_(s.kuota, 0); return { nama: s.nama, jam: s.jam || '', kuota: kuota, sisa: Math.max(0, kuota - (used[d + '|' + s.nama] || 0)) }; }) });
+    }
+    const jadwalMingguan = [1, 2, 3, 4, 5, 6, 0].map(function (n) { const a = jsonSafe_(c.Jadwal_Kunjungan, {})[String(n)]; return { hari: HARI[n], sesi: Array.isArray(a) ? a.filter(function (s) { return s && s.nama; }) : [] }; });
+    return {
+      dibuka: c.Pendaftaran_Dibuka !== 'Tidak', days: days, mingguan: jadwalMingguan,
+      aturan: { min: min, max: max, maksPengikut: Math.max(0, int_(c.Maks_Pengikut, 3)), ktpWajib: c.KTP_Wajib === 'Ya' },
+      fasilitas: barisList_(c.Fasilitas_Disabilitas)
+    };
+  });
+}
+
+function cekSlot_(c, tgl, namaSesi, rows, abaikanNoReg, petugas) {
+  if (!isDate_(tgl)) fail_('Tanggal kunjungan tidak valid.');
+  const t = today_(), min = petugas ? 0 : Math.max(0, int_(c.Min_Hari_Daftar, 1)), max = petugas ? 120 : Math.max(min, int_(c.Maks_Hari_Daftar, 14));
+  if (tgl < addDays_(t, min)) fail_(min === 0 ? 'Tanggal kunjungan tidak boleh sudah lewat.' : 'Pendaftaran paling lambat ' + min + ' hari sebelum tanggal kunjungan.');
+  if (tgl > addDays_(t, max)) fail_('Pendaftaran hanya dapat dilakukan maksimal ' + max + ' hari ke depan.');
+  const libur = liburMap_(c);
+  if (libur[tgl]) fail_('Tanggal tersebut tidak tersedia: ' + libur[tgl] + '.');
+  const sesi = jadwalHari_(c, tgl).filter(function (s) { return s.nama === namaSesi; })[0];
+  if (!sesi) fail_('Sesi kunjungan yang dipilih tidak tersedia pada tanggal tersebut.');
+  const used = terpakai_(rows.filter(function (r) { return r.No_Reg !== abaikanNoReg; }));
+  if ((used[tgl + '|' + sesi.nama] || 0) >= int_(sesi.kuota, 0)) fail_('Kuota sesi tersebut sudah penuh. Silakan pilih sesi atau tanggal lain.');
+  return sesi;
+}
+
+function kodeUnik_(prefix, existing, kolom) {
+  const ymd = Utilities.formatDate(new Date(), TZ, 'yyMMdd');
+  for (let i = 0; i < 20; i++) {
+    const no = prefix + '-' + ymd + '-' + randCode_(4);
+    if (!existing.some(function (r) { return r[kolom] === no; })) return no;
+  }
+  fail_('Gagal membuat nomor registrasi. Silakan coba lagi.');
+}
+
+function publik_daftarKunjungan(f, berkas) {
+  return safe_(function () {
+    f = f || {};
+    if (str_(f.website, 50)) fail_('Permintaan tidak valid.');
+    const c = cfg_();
+    if (c.Pendaftaran_Dibuka === 'Tidak') fail_('Pendaftaran kunjungan online sedang ditutup. Silakan hubungi petugas layanan.');
+    const nama = str_(f.nama, 100); if (nama.length < 3) fail_('Nama lengkap wajib diisi (minimal 3 huruf).');
+    const nik = String(f.nik || '').replace(/\D/g, ''); if (nik.length !== 16) fail_('NIK harus terdiri dari 16 digit angka.');
+    const hp = normHp_(f.hp); if (!/^0\d{8,13}$/.test(hp)) fail_('Nomor HP / WhatsApp tidak valid.');
+    const email = str_(f.email, 120).toLowerCase(); if (email && !validEmail_(email)) fail_('Format email tidak valid.');
+    const alamat = str_(f.alamat, 300); if (alamat.length < 5) fail_('Alamat wajib diisi.');
+    const wbp = str_(f.namaWbp, 120); if (wbp.length < 3) fail_('Nama warga binaan yang dikunjungi wajib diisi.');
+    const hub = str_(f.hubungan, 60); if (HUBUNGAN.indexOf(hub) < 0) fail_('Pilih hubungan dengan warga binaan.');
+    if (f.setuju !== true) fail_('Anda harus menyetujui pernyataan kebenaran data dan kebijakan privasi.');
+    const maksP = Math.max(0, int_(c.Maks_Pengikut, 3));
+    const pengikut = (Array.isArray(f.pengikut) ? f.pengikut : []).slice(0, 20).map(function (p) { return { nama: str_(p && p.nama, 100), hubungan: str_(p && p.hubungan, 60), usia: str_(p && p.usia, 3) }; }).filter(function (p) { return p.nama; });
+    if (pengikut.length > maksP) fail_('Jumlah pengikut maksimal ' + maksP + ' orang.');
+    pengikut.forEach(function (p) { if (p.nama.length < 3) fail_('Nama pengikut minimal 3 huruf.'); });
+    const kebutuhan = (Array.isArray(f.kebutuhan) ? f.kebutuhan : []).filter(function (k) { return KEBUTUHAN_KHUSUS.indexOf(k) >= 0; });
+    const detail = str_(f.detailKebutuhan, 400);
+    if (c.KTP_Wajib === 'Ya' && !(berkas && berkas.bytes)) fail_('Foto identitas (KTP) wajib diunggah.');
+    rateLimit_('rl_kj_' + nik, 5, 86400, 'Pendaftaran dengan NIK ini sudah mencapai batas harian. Silakan coba besok atau hubungi petugas.');
+    cekSlot_(c, str_(f.tgl, 10), str_(f.sesi, 60), table_('Kunjungan'));   // pra-cek cepat sebelum unggah berkas
+
+    let berkasId = '';
+    if (berkas && berkas.bytes) berkasId = simpanBerkas_(berkas, { folder: 'Berkas_Kunjungan_PRIVAT', allowed: MIME_GAMBAR.concat(['application/pdf']), max: 4 * 1024 * 1024, prefix: 'KTP_', publik: false, labelJenis: 'JPG, PNG, WEBP, atau PDF.' }).id;
+
+    let hasil;
+    try {
+      hasil = withLock_(function () {
+        const rows = table_('Kunjungan');
+        const sesi = cekSlot_(c, str_(f.tgl, 10), str_(f.sesi, 60), rows);
+        rows.forEach(function (r) {
+          if (aktifKunjungan_(r.Status) && r.Tgl_Kunjungan === f.tgl && r.NIK === nik) fail_('NIK ini sudah terdaftar pada tanggal tersebut (No. Reg ' + r.No_Reg + ').');
+        });
+        const maksW = int_(c.Maks_Kunjungan_WBP_Hari, 0);
+        if (maksW > 0) {
+          const n = rows.filter(function (r) { return aktifKunjungan_(r.Status) && r.Tgl_Kunjungan === f.tgl && r.Nama_WBP.toLowerCase() === wbp.toLowerCase(); }).length;
+          if (n >= maksW) fail_('Warga binaan tersebut sudah mencapai batas kunjungan pada tanggal itu. Silakan pilih tanggal lain.');
+        }
+        const noReg = kodeUnik_('KJ', rows, 'No_Reg'), kode = randCode_(6);
+        addRow_('Kunjungan', { No_Reg: noReg, Kode_Cek: kode, Tgl_Daftar: now_(), Tgl_Kunjungan: f.tgl, Sesi: sesi.nama, Jam: sesi.jam || '', Nama: nama, NIK: nik, No_HP: hp, Email: email, Alamat: alamat, Nama_WBP: wbp, Hubungan: hub, Pengikut: JSON.stringify(pengikut), Kebutuhan: JSON.stringify(kebutuhan), Detail_Kebutuhan: detail, Berkas_ID: berkasId, Status: 'Menunggu Verifikasi', Catatan: '', Diproses_Oleh: '', Waktu_Proses: '' });
+        return { noReg: noReg, kode: kode, tgl: f.tgl, sesi: sesi.nama, jam: sesi.jam || '' };
+      });
+    } catch (e) {
+      if (berkasId) { try { DriveApp.getFileById(berkasId).setTrashed(true); } catch (x) {} }
+      throw e;
+    }
+    if (email) kirimEmail_(email, 'Pendaftaran kunjungan diterima: ' + hasil.noReg, '<p>Yth. <b>' + esc_(nama) + '</b>,</p><p>Pendaftaran kunjungan Anda telah kami terima dan sedang menunggu verifikasi petugas.</p><table cellpadding="6" style="border-collapse:collapse"><tr><td>No. Registrasi</td><td><b>' + esc_(hasil.noReg) + '</b></td></tr><tr><td>Kode Cek</td><td><b>' + esc_(hasil.kode) + '</b></td></tr><tr><td>Tanggal</td><td>' + esc_(hasil.tgl) + '</td></tr><tr><td>Sesi</td><td>' + esc_(hasil.sesi + ' ' + hasil.jam) + '</td></tr></table><p>Simpan nomor registrasi dan kode cek untuk memeriksa status pendaftaran di website.</p>');
+    if (c.Email_Notifikasi_Layanan) kirimEmail_(c.Email_Notifikasi_Layanan, 'Pendaftaran kunjungan baru ' + hasil.noReg, '<p>Ada pendaftaran kunjungan baru untuk tanggal <b>' + esc_(hasil.tgl) + '</b> (' + esc_(hasil.sesi) + '). Silakan verifikasi melalui dashboard petugas.</p>');
+    return hasil;
+  });
+}
+
+function cariKunjungan_(noReg, kode) {
+  noReg = str_(noReg, 40).toUpperCase(); kode = str_(kode, 10).toUpperCase();
+  if (!noReg || !kode) fail_('Nomor registrasi dan kode cek wajib diisi.');
+  const c = CacheService.getScriptCache(), fk = 'rl_cekf_' + noReg;
+  if (int_(c.get(fk), 0) >= 8) fail_('Terlalu banyak percobaan. Silakan coba lagi dalam satu jam.');
+  const r = table_('Kunjungan').filter(function (x) { return x.No_Reg === noReg; })[0];
+  if (!r || r.Kode_Cek !== kode) { c.put(fk, String(int_(c.get(fk), 0) + 1), 3600); fail_('Data tidak ditemukan. Periksa kembali nomor registrasi dan kode cek Anda.'); }
+  return r;
+}
+function publik_cekKunjungan(noReg, kode) {
+  return safe_(function () {
+    const r = cariKunjungan_(noReg, kode);
+    return {
+      noReg: r.No_Reg, status: r.Status, tglDaftar: r.Tgl_Daftar, tgl: r.Tgl_Kunjungan, sesi: r.Sesi, jam: r.Jam, nama: r.Nama, namaWbp: r.Nama_WBP,
+      pengikut: jsonSafe_(r.Pengikut, []).length, kebutuhan: jsonSafe_(r.Kebutuhan, []), catatan: r.Catatan,
+      dapatBatal: aktifKunjungan_(r.Status) && r.Tgl_Kunjungan >= today_()
+    };
+  });
+}
+function publik_batalKunjungan(noReg, kode) {
+  return safe_(function () {
+    cariKunjungan_(noReg, kode);
+    return withLock_(function () {
+      const r = table_('Kunjungan').filter(function (x) { return x.No_Reg === String(noReg).trim().toUpperCase(); })[0];
+      if (!r || !aktifKunjungan_(r.Status) || r.Tgl_Kunjungan < today_()) fail_('Pendaftaran ini tidak dapat dibatalkan.');
+      r.Status = 'Dibatalkan'; r.Catatan = 'Dibatalkan oleh pengunjung pada ' + now_(); r.Waktu_Proses = now_();
+      setRow_('Kunjungan', r._row, r);
+      return true;
+    });
+  });
+}
+
+// =====================================================================
+//  API PUBLIK : PENGADUAN & PERMOHONAN INFORMASI
+// =====================================================================
+function publik_kirimPengaduan(f, lampiran) {
+  return safe_(function () {
+    f = f || {};
+    if (str_(f.website, 50)) fail_('Permintaan tidak valid.');
+    const jenis = f.jenis === 'Permohonan Informasi' ? 'Permohonan Informasi' : 'Pengaduan';
+    const anonim = f.anonim === true && jenis === 'Pengaduan';
+    const nama = anonim ? '' : str_(f.nama, 100);
+    const kontak = str_(f.kontak, 120);
+    if (!anonim && nama.length < 3) fail_('Nama wajib diisi, atau pilih kirim secara anonim.');
+    if (jenis === 'Permohonan Informasi' && !kontak) fail_('Kontak (email atau nomor HP) wajib diisi agar kami dapat menyampaikan jawaban.');
+    if (kontak && !validEmail_(kontak.toLowerCase()) && !/^\+?[\d\s\-]{8,16}$/.test(kontak)) fail_('Kontak harus berupa email atau nomor HP yang valid.');
+    const kategori = jenis === 'Pengaduan' ? str_(f.kategori, 80) : 'Informasi Publik';
+    if (jenis === 'Pengaduan' && KATEGORI_PENGADUAN.indexOf(kategori) < 0) fail_('Pilih kategori pengaduan.');
+    const subjek = str_(f.subjek, 150); if (subjek.length < 5) fail_('Subjek minimal 5 karakter.');
+    const isi = str_(f.isi, 4000); if (isi.length < 20) fail_('Uraian minimal 20 karakter agar dapat ditindaklanjuti.');
+    if (f.setuju !== true) fail_('Anda harus menyetujui kebijakan privasi.');
+    rateLimit_('rl_pgd_all', 80, 3600, 'Layanan sedang menerima banyak kiriman. Silakan coba lagi nanti.');
+    rateLimit_('rl_pgd_' + (kontak || nama || 'anon').toLowerCase().slice(0, 60), 6, 86400, 'Anda telah mengirim terlalu banyak pesan hari ini.');
+    let lampId = '';
+    if (lampiran && lampiran.bytes) lampId = simpanBerkas_(lampiran, { folder: 'Lampiran_Pengaduan_PRIVAT', allowed: MIME_GAMBAR.concat(['application/pdf']), max: 4 * 1024 * 1024, prefix: 'LMP_', publik: false, labelJenis: 'JPG, PNG, WEBP, atau PDF.' }).id;
+    const hasil = withLock_(function () {
+      const rows = table_('Pengaduan');
+      const no = kodeUnik_(jenis === 'Pengaduan' ? 'PGD' : 'PI', rows, 'No_Tiket'), kode = randCode_(6);
+      addRow_('Pengaduan', { No_Tiket: no, Kode_Cek: kode, Tanggal: now_(), Jenis: jenis, Kategori: kategori, Nama: nama, Kontak: kontak, Anonim: anonim ? 'Ya' : 'Tidak', Subjek: subjek, Isi: isi, Lampiran_ID: lampId, Status: 'Baru', Tanggapan: '', Ditangani_Oleh: '', Waktu_Tanggapan: '' });
+      return { noTiket: no, kode: kode, jenis: jenis };
+    });
+    const c = cfg_();
+    if (validEmail_(kontak.toLowerCase())) kirimEmail_(kontak, jenis + ' diterima: ' + hasil.noTiket, '<p>Terima kasih. ' + esc_(jenis) + ' Anda telah kami terima.</p><p>Nomor tiket: <b>' + esc_(hasil.noTiket) + '</b><br>Kode cek: <b>' + esc_(hasil.kode) + '</b></p><p>Gunakan keduanya untuk memantau tindak lanjut di website.</p>');
+    if (c.Email_Notifikasi_Humas) kirimEmail_(c.Email_Notifikasi_Humas, jenis + ' baru ' + hasil.noTiket, '<p>Ada ' + esc_(jenis.toLowerCase()) + ' baru dengan subjek <b>' + esc_(subjek) + '</b>. Silakan tindak lanjuti melalui dashboard Humas.</p>');
+    return hasil;
+  });
+}
+function publik_cekTiket(no, kode) {
+  return safe_(function () {
+    no = str_(no, 40).toUpperCase(); kode = str_(kode, 10).toUpperCase();
+    if (!no || !kode) fail_('Nomor tiket dan kode cek wajib diisi.');
+    const c = CacheService.getScriptCache(), fk = 'rl_tikf_' + no;
+    if (int_(c.get(fk), 0) >= 8) fail_('Terlalu banyak percobaan. Silakan coba lagi dalam satu jam.');
+    const r = table_('Pengaduan').filter(function (x) { return x.No_Tiket === no; })[0];
+    if (!r || r.Kode_Cek !== kode) { c.put(fk, String(int_(c.get(fk), 0) + 1), 3600); fail_('Tiket tidak ditemukan. Periksa kembali nomor tiket dan kode cek.'); }
+    return { noTiket: r.No_Tiket, jenis: r.Jenis, kategori: r.Kategori, subjek: r.Subjek, tanggal: r.Tanggal, status: r.Status, tanggapan: r.Tanggapan, waktuTanggapan: r.Waktu_Tanggapan };
+  });
+}
+
+// =====================================================================
+//  API ADMIN : DASHBOARD
+// =====================================================================
+function admin_dashboard(token) {
+  return safe_(function () {
+    const s = auth_(token), t = today_(), out = { role: s.role };
+    if (s.role === R_SUPER || s.role === R_LAYANAN) {
+      const k = table_('Kunjungan'), besok = addDays_(t, 1);
+      const seri = [];
+      for (let i = 13; i >= 0; i--) { const d = addDays_(t, -i); seri.push({ tanggal: d, jumlah: k.filter(function (r) { return r.Tgl_Daftar.slice(0, 10) === d; }).length }); }
+      out.kunjungan = {
+        menunggu: k.filter(function (r) { return r.Status === 'Menunggu Verifikasi'; }).length,
+        hariIni: k.filter(function (r) { return r.Tgl_Kunjungan === t && r.Status === 'Disetujui'; }).length,
+        besok: k.filter(function (r) { return r.Tgl_Kunjungan === besok && r.Status === 'Disetujui'; }).length,
+        bulanIni: k.filter(function (r) { return r.Tgl_Daftar.slice(0, 7) === t.slice(0, 7); }).length,
+        kebutuhanKhusus: k.filter(function (r) { return aktifKunjungan_(r.Status) && r.Tgl_Kunjungan >= t && jsonSafe_(r.Kebutuhan, []).length > 0; }).length,
+        seri: seri
+      };
+    }
+    if (s.role === R_SUPER || s.role === R_HUMAS) {
+      const b = table_('Berita'), p = table_('Pengaduan'), cnt = {};
+      STATUS_BERITA.forEach(function (st) { cnt[st] = b.filter(function (x) { return x.Status === st; }).length; });
+      out.berita = cnt;
+      out.pengaduan = { baru: p.filter(function (x) { return x.Status === 'Baru' && x.Jenis === 'Pengaduan'; }).length, permohonanBaru: p.filter(function (x) { return x.Status === 'Baru' && x.Jenis === 'Permohonan Informasi'; }).length, diproses: p.filter(function (x) { return x.Status === 'Diproses'; }).length };
+    }
+    if (s.role === R_SUPER) {
+      out.pengguna = table_('Users').filter(function (u) { return u.Status === 'Aktif'; }).length;
+      out.log = table_('Log').slice(-8).reverse();
+    }
+    return out;
+  }, true);
+}
+
+// =====================================================================
+//  API ADMIN : KUNJUNGAN (Petugas Layanan)
+// =====================================================================
+function ringkasKunjungan_(r) {
+  return { noReg: r.No_Reg, tglDaftar: r.Tgl_Daftar, tgl: r.Tgl_Kunjungan, sesi: r.Sesi, jam: r.Jam, nama: r.Nama, namaWbp: r.Nama_WBP, status: r.Status, pengikut: jsonSafe_(r.Pengikut, []).length, khusus: jsonSafe_(r.Kebutuhan, []).length > 0 };
+}
+function admin_kunjunganList(token, flt) {
+  return safe_(function () {
+    auth_(token, [R_LAYANAN]);
+    flt = flt || {};
+    const q = str_(flt.q, 60).toLowerCase(), st = str_(flt.status, 40), dari = str_(flt.dari, 10), sampai = str_(flt.sampai, 10);
+    let rows = table_('Kunjungan');
+    if (st) rows = rows.filter(function (r) { return r.Status === st; });
+    if (isDate_(dari)) rows = rows.filter(function (r) { return r.Tgl_Kunjungan >= dari; });
+    if (isDate_(sampai)) rows = rows.filter(function (r) { return r.Tgl_Kunjungan <= sampai; });
+    if (flt.khusus) rows = rows.filter(function (r) { return jsonSafe_(r.Kebutuhan, []).length > 0; });
+    if (q) rows = rows.filter(function (r) { return (r.No_Reg + ' ' + r.Nama + ' ' + r.Nama_WBP).toLowerCase().indexOf(q) >= 0; });
+    rows.sort(function (a, b) { return b.Tgl_Daftar.localeCompare(a.Tgl_Daftar); });
+    return { total: rows.length, items: rows.slice(0, 300).map(ringkasKunjungan_) };
+  }, true);
+}
+function admin_kunjunganDetail(token, noReg) {
+  return safe_(function () {
+    const s = auth_(token, [R_LAYANAN]);
+    const r = table_('Kunjungan').filter(function (x) { return x.No_Reg === str_(noReg, 40); })[0];
+    if (!r) fail_('Data pendaftaran tidak ditemukan.');
+    log_(s, 'Lihat detail kunjungan', r.No_Reg);
+    return {
+      noReg: r.No_Reg, tglDaftar: r.Tgl_Daftar, tgl: r.Tgl_Kunjungan, sesi: r.Sesi, jam: r.Jam, nama: r.Nama, nik: r.NIK, hp: r.No_HP, email: r.Email, alamat: r.Alamat,
+      namaWbp: r.Nama_WBP, hubungan: r.Hubungan, pengikut: jsonSafe_(r.Pengikut, []), kebutuhan: jsonSafe_(r.Kebutuhan, []), detailKebutuhan: r.Detail_Kebutuhan,
+      adaBerkas: !!r.Berkas_ID, status: r.Status, catatan: r.Catatan, diprosesOleh: r.Diproses_Oleh, waktuProses: r.Waktu_Proses
+    };
+  }, true);
+}
+function admin_kunjunganBerkas(token, noReg) {
+  return safe_(function () {
+    const s = auth_(token, [R_LAYANAN]);
+    const r = table_('Kunjungan').filter(function (x) { return x.No_Reg === str_(noReg, 40); })[0];
+    if (!r || !r.Berkas_ID) fail_('Tidak ada berkas identitas untuk pendaftaran ini.');
+    log_(s, 'Lihat berkas identitas', r.No_Reg);
+    return bacaBerkasPrivat_(r.Berkas_ID);
+  }, true);
+}
+function admin_kunjunganProses(token, noReg, status, catatan) {
+  return safe_(function () {
+    const s = auth_(token, [R_LAYANAN]);
+    status = str_(status, 40); catatan = str_(catatan, 400);
+    if (['Disetujui', 'Ditolak', 'Selesai', 'Tidak Hadir'].indexOf(status) < 0) fail_('Status tidak valid.');
+    if (status === 'Ditolak' && catatan.length < 5) fail_('Alasan penolakan wajib diisi (minimal 5 karakter).');
+    const hasil = withLock_(function () {
+      const r = table_('Kunjungan').filter(function (x) { return x.No_Reg === str_(noReg, 40); })[0];
+      if (!r) fail_('Data pendaftaran tidak ditemukan.');
+      if (status === 'Disetujui' && r.Status !== 'Menunggu Verifikasi') fail_('Hanya pendaftaran berstatus Menunggu Verifikasi yang dapat disetujui.');
+      if (status === 'Disetujui' && r.Tgl_Kunjungan < today_()) fail_('Tanggal kunjungan sudah lewat. Tolak pendaftaran atau jadwalkan ulang.');
+      if ((status === 'Selesai' || status === 'Tidak Hadir') && r.Status !== 'Disetujui') fail_('Kehadiran hanya dapat dicatat untuk pendaftaran yang sudah disetujui.');
+      if (status === 'Ditolak' && ['Menunggu Verifikasi', 'Disetujui'].indexOf(r.Status) < 0) fail_('Pendaftaran ini sudah final dan tidak dapat ditolak.');
+      r.Status = status; r.Catatan = catatan || r.Catatan; r.Diproses_Oleh = s.nama; r.Waktu_Proses = now_();
+      setRow_('Kunjungan', r._row, r);
+      return clean_(r);
+    });
+    log_(s, 'Kunjungan ' + status, hasil.No_Reg);
+    if ((status === 'Disetujui' || status === 'Ditolak') && hasil.Email) {
+      kirimEmail_(hasil.Email, 'Pendaftaran kunjungan ' + hasil.No_Reg + ' ' + status.toLowerCase(), '<p>Yth. <b>' + esc_(hasil.Nama) + '</b>,</p><p>Pendaftaran kunjungan Anda untuk tanggal <b>' + esc_(hasil.Tgl_Kunjungan) + '</b> (' + esc_(hasil.Sesi + ' ' + hasil.Jam) + ') telah <b>' + esc_(status.toLowerCase()) + '</b>.</p>' + (hasil.Catatan ? '<p>Catatan petugas: ' + esc_(hasil.Catatan) + '</p>' : '') + (status === 'Disetujui' ? '<p>Mohon hadir tepat waktu dan membawa identitas asli sesuai pendaftaran.</p>' : ''));
+    }
+    return true;
+  }, true);
+}
+function admin_kunjunganJadwalUlang(token, noReg, tgl, sesi, catatan) {
+  return safe_(function () {
+    const s = auth_(token, [R_LAYANAN]);
+    withLock_(function () {
+      const rows = table_('Kunjungan');
+      const r = rows.filter(function (x) { return x.No_Reg === str_(noReg, 40); })[0];
+      if (!r) fail_('Data pendaftaran tidak ditemukan.');
+      if (!aktifKunjungan_(r.Status)) fail_('Hanya pendaftaran aktif yang dapat dijadwalkan ulang.');
+      const sl = cekSlot_(cfg_(), str_(tgl, 10), str_(sesi, 60), rows, r.No_Reg, true);
+      r.Tgl_Kunjungan = tgl; r.Sesi = sl.nama; r.Jam = sl.jam || '';
+      r.Catatan = 'Dijadwalkan ulang oleh petugas. ' + str_(catatan, 300); r.Diproses_Oleh = s.nama; r.Waktu_Proses = now_();
+      setRow_('Kunjungan', r._row, r);
+      if (r.Email) kirimEmail_(r.Email, 'Jadwal kunjungan ' + r.No_Reg + ' diubah', '<p>Yth. <b>' + esc_(r.Nama) + '</b>, jadwal kunjungan Anda diubah menjadi <b>' + esc_(r.Tgl_Kunjungan) + '</b> (' + esc_(r.Sesi + ' ' + r.Jam) + ').</p>');
+    });
+    log_(s, 'Jadwal ulang kunjungan', noReg);
+    return true;
+  }, true);
+}
+function admin_kunjunganHarian(token, tgl) {
+  return safe_(function () {
+    auth_(token, [R_LAYANAN]);
+    if (!isDate_(tgl)) fail_('Tanggal tidak valid.');
+    return table_('Kunjungan').filter(function (r) { return r.Tgl_Kunjungan === tgl && ['Disetujui', 'Selesai', 'Tidak Hadir'].indexOf(r.Status) >= 0; })
+      .sort(function (a, b) { return (a.Jam + a.Sesi + a.Nama).localeCompare(b.Jam + b.Sesi + b.Nama); })
+      .map(function (r) { return { noReg: r.No_Reg, sesi: r.Sesi, jam: r.Jam, nama: r.Nama, namaWbp: r.Nama_WBP, hubungan: r.Hubungan, pengikut: jsonSafe_(r.Pengikut, []), kebutuhan: jsonSafe_(r.Kebutuhan, []), detail: r.Detail_Kebutuhan, status: r.Status }; });
+  }, true);
+}
+
+// =====================================================================
+//  API ADMIN : BERITA (Humas)
+// =====================================================================
+function bolehStatusBerita_(role, perlu, dari, ke) {
+  if (role === R_SUPER) return true;
+  if (dari === ke) return true;
+  if (ke === 'Menunggu Persetujuan') return dari === 'Draft';
+  if (ke === 'Arsip') return dari === 'Draft' || dari === 'Menunggu Persetujuan' || (!perlu && (dari === 'Terbit' || dari === 'Terjadwal'));
+  if (ke === 'Draft') return dari === 'Arsip' || dari === 'Menunggu Persetujuan' || (!perlu && (dari === 'Terbit' || dari === 'Terjadwal'));
+  if (ke === 'Terbit' || ke === 'Terjadwal') return !perlu;
+  return false;
+}
+function admin_beritaList(token, flt) {
+  return safe_(function () {
+    auth_(token, [R_HUMAS]);
+    flt = flt || {};
+    const q = str_(flt.q, 60).toLowerCase(), st = str_(flt.status, 40), now = now_();
+    let rows = table_('Berita');
+    if (st) rows = rows.filter(function (b) { return b.Status === st; });
+    if (q) rows = rows.filter(function (b) { return (b.Judul + ' ' + b.Kategori + ' ' + b.Penulis).toLowerCase().indexOf(q) >= 0; });
+    rows.sort(function (a, b) { return b.Diubah.localeCompare(a.Diubah); });
+    return {
+      total: rows.length,
+      items: rows.slice(0, 300).map(function (b) {
+        return { id: b.ID, slug: b.Slug, judul: b.Judul, kategori: b.Kategori, foto: b.Foto_URL, status: b.Status, tayang: beritaPublik_(b, now), tgl: tglTampil_(b), tglJadwal: b.Tgl_Jadwal, penulis: b.Penulis, dibuatOleh: b.Dibuat_Oleh, diubah: b.Diubah, dilihat: int_(b.Dilihat, 0), catatan: b.Catatan_Review };
+      })
+    };
+  }, true);
+}
+function admin_beritaGet(token, id) {
+  return safe_(function () {
+    auth_(token, [R_HUMAS]);
+    const b = table_('Berita').filter(function (x) { return x.ID === str_(id, 40); })[0];
+    if (!b) fail_('Berita tidak ditemukan.');
+    return { id: b.ID, slug: b.Slug, judul: b.Judul, kategori: b.Kategori, ringkasan: b.Ringkasan, foto: b.Foto_URL, galeri: jsonSafe_(b.Galeri, []), penulis: b.Penulis, status: b.Status, tglJadwal: b.Tgl_Jadwal, seoJudul: b.SEO_Judul, seoDeskripsi: b.SEO_Deskripsi, catatan: b.Catatan_Review, isi: isiBerita_(b.ID) };
+  }, true);
+}
+function admin_beritaSimpan(token, d, aksi) {
+  return safe_(function () {
+    const s = auth_(token, [R_HUMAS]);
+    d = d || {}; aksi = str_(aksi, 20);
+    if (['draft', 'simpan', 'ajukan', 'terbit', 'jadwal'].indexOf(aksi) < 0) fail_('Aksi tidak valid.');
+    const c = cfg_(), perlu = c.Wajib_Persetujuan_Berita === 'Ya';
+    const judul = str_(d.judul, 200); if (judul.length < 10) fail_('Judul minimal 10 karakter.');
+    const kategori = str_(d.kategori, 80); if (KATEGORI_BERITA.indexOf(kategori) < 0) fail_('Pilih kategori berita.');
+    const ringkasan = str_(d.ringkasan, 400);
+    if (aksi !== 'draft' && ringkasan.length < 20) fail_('Ringkasan minimal 20 karakter.');
+    const isi = sanitizeHtml_(d.isi);
+    if (aksi !== 'draft' && isi.replace(/<[^>]*>/g, '').trim().length < 50) fail_('Isi berita terlalu pendek (minimal 50 karakter).');
+    const foto = validUrl_(d.foto, true);
+    const galeri = (Array.isArray(d.galeri) ? d.galeri : []).slice(0, 12).map(function (u) { return validUrl_(u, true); }).filter(Boolean);
+    let jadwal = '';
+    if (aksi === 'jadwal') {
+      const m = String(d.tglJadwal || '').replace('T', ' ').match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})/);
+      if (!m) fail_('Tanggal dan jam penjadwalan wajib diisi.');
+      jadwal = m[1] + ' ' + m[2] + ':00';
+      if (jadwal <= now_()) fail_('Waktu penjadwalan harus di masa depan.');
+    }
+    if ((aksi === 'terbit' || aksi === 'jadwal') && perlu && s.role !== R_SUPER) fail_('Berita harus disetujui Super Admin sebelum terbit. Gunakan tombol "Ajukan untuk Persetujuan".');
+    const hasil = withLock_(function () {
+      const rows = table_('Berita'), ex = d.id ? rows.filter(function (x) { return x.ID === str_(d.id, 40); })[0] : null;
+      if (d.id && !ex) fail_('Berita yang diedit tidak ditemukan.');
+      if (ex && (ex.Status === 'Terbit' || ex.Status === 'Terjadwal') && perlu && s.role !== R_SUPER) fail_('Berita yang sudah terbit hanya dapat diubah oleh Super Admin karena persetujuan wajib diaktifkan.');
+      let slug = slugify_(d.slug || judul) || 'berita';
+      if (!ex || ex.Slug !== slug) { let base = slug, n = 2; while (rows.some(function (x) { return x.Slug === slug && (!ex || x.ID !== ex.ID); })) slug = base + '-' + (n++); }
+      const rec = ex ? clean_(ex) : { ID: newId_('BR-'), Dibuat: now_(), Dibuat_Oleh: s.nama, Dilihat: '0', Status: 'Draft' };
+      let status = rec.Status;
+      if (aksi === 'draft') status = 'Draft';
+      else if (aksi === 'ajukan') status = 'Menunggu Persetujuan';
+      else if (aksi === 'terbit') { status = 'Terbit'; if (!rec.Tgl_Terbit) rec.Tgl_Terbit = now_(); rec.Disetujui_Oleh = s.nama; }
+      else if (aksi === 'jadwal') { status = 'Terjadwal'; rec.Tgl_Jadwal = jadwal; rec.Disetujui_Oleh = s.nama; }
+      if (ex && !bolehStatusBerita_(s.role, perlu, ex.Status, status)) fail_('Perubahan status tidak diizinkan untuk peran Anda.');
+      Object.assign(rec, { Slug: slug, Judul: judul, Kategori: kategori, Ringkasan: ringkasan, Foto_URL: foto, Galeri: JSON.stringify(galeri), Penulis: str_(d.penulis, 100) || s.nama, Status: status, Diubah: now_(), SEO_Judul: str_(d.seoJudul, 70), SEO_Deskripsi: str_(d.seoDeskripsi, 160) });
+      if (status !== 'Terjadwal' && aksi !== 'jadwal') rec.Tgl_Jadwal = status === 'Terbit' ? '' : rec.Tgl_Jadwal;
+      if (status === 'Draft' || status === 'Menunggu Persetujuan') rec.Catatan_Review = status === 'Menunggu Persetujuan' ? '' : rec.Catatan_Review;
+      if (ex) setRow_('Berita', ex._row, rec); else addRow_('Berita', rec);
+      const r2 = cariBarisKunci_('Berita_Isi', rec.ID);
+      if (r2) setRow_('Berita_Isi', r2, { ID: rec.ID, Isi: isi }); else addRow_('Berita_Isi', { ID: rec.ID, Isi: isi });
+      return { id: rec.ID, slug: rec.Slug, status: rec.Status };
+    });
+    cdel_(['pub_beranda']);
+    log_(s, 'Berita ' + aksi, judul);
+    return hasil;
+  }, true);
+}
+function admin_beritaStatus(token, id, status, catatan) {
+  return safe_(function () {
+    const s = auth_(token, [R_HUMAS]);
+    status = str_(status, 40); catatan = str_(catatan, 300);
+    if (STATUS_BERITA.indexOf(status) < 0 || status === 'Terjadwal') fail_('Status tidak valid.');
+    const perlu = cfg_().Wajib_Persetujuan_Berita === 'Ya';
+    withLock_(function () {
+      const b = table_('Berita').filter(function (x) { return x.ID === str_(id, 40); })[0];
+      if (!b) fail_('Berita tidak ditemukan.');
+      if (!bolehStatusBerita_(s.role, perlu, b.Status, status)) fail_('Perubahan status ini tidak diizinkan untuk peran Anda.');
+      if (b.Status === 'Menunggu Persetujuan' && status === 'Draft' && catatan.length < 5) fail_('Catatan revisi wajib diisi saat mengembalikan berita ke draft.');
+      if (status === 'Terbit' && (b.Status !== 'Terbit')) { const isi = isiBerita_(b.ID); if (isi.replace(/<[^>]*>/g, '').trim().length < 50 || b.Ringkasan.length < 20) fail_('Berita belum lengkap (ringkasan/isi) sehingga tidak dapat diterbitkan.'); b.Tgl_Terbit = b.Tgl_Terbit || now_(); b.Disetujui_Oleh = s.nama; b.Tgl_Jadwal = ''; }
+      if (catatan) b.Catatan_Review = catatan;
+      b.Status = status; b.Diubah = now_();
+      setRow_('Berita', b._row, b);
+    });
+    cdel_(['pub_beranda']);
+    log_(s, 'Status berita -> ' + status, id);
+    return true;
+  }, true);
+}
+function admin_beritaHapus(token, id) {
+  return safe_(function () {
+    const s = auth_(token, [R_SUPER]);
+    withLock_(function () {
+      const b = table_('Berita').filter(function (x) { return x.ID === str_(id, 40); })[0];
+      if (!b) fail_('Berita tidak ditemukan.');
+      const r2 = cariBarisKunci_('Berita_Isi', b.ID);
+      if (r2) delRow_('Berita_Isi', r2);
+      delRow_('Berita', b._row);
+    });
+    cdel_(['pub_beranda']);
+    log_(s, 'Hapus berita', id);
+    return true;
+  }, true);
+}
+
+// =====================================================================
+//  API ADMIN : UNGGAH BERKAS PUBLIK
+// =====================================================================
+function admin_upload(token, kind, file) {
+  return safe_(function () {
+    const s = auth_(token, [R_HUMAS, R_LAYANAN]);
+    kind = str_(kind, 20);
+    let o;
+    if (kind === 'dokumen') o = { folder: 'Dokumen', allowed: MIME_GAMBAR.concat(MIME_DOKUMEN), max: MAKS_DOKUMEN_BYTE, prefix: '', publik: true, labelJenis: 'PDF, Word, Excel, PowerPoint, atau gambar.' };
+    else if (['berita', 'galeri', 'profil'].indexOf(kind) >= 0) {
+      if (s.role === R_LAYANAN) fail_('Anda tidak memiliki hak mengunggah gambar jenis ini.', 'AKSES');
+      o = { folder: kind === 'berita' ? 'Berita' : kind === 'galeri' ? 'Galeri' : 'Profil', allowed: MIME_GAMBAR, max: MAKS_GAMBAR_BYTE, prefix: '', publik: true };
+    } else fail_('Jenis unggahan tidak dikenal.');
+    const r = simpanBerkas_(file, o);
+    log_(s, 'Unggah ' + kind, r.name);
+    return { url: r.url, id: r.id, name: r.name, warn: r.warn };
+  }, true);
+}
+
+// =====================================================================
+//  API ADMIN : PENGADUAN & PERMOHONAN INFORMASI (Humas)
+// =====================================================================
+function admin_pengaduanList(token, flt) {
+  return safe_(function () {
+    auth_(token, [R_HUMAS]);
+    flt = flt || {};
+    const q = str_(flt.q, 60).toLowerCase(), st = str_(flt.status, 40), jn = str_(flt.jenis, 40);
+    let rows = table_('Pengaduan');
+    if (st) rows = rows.filter(function (r) { return r.Status === st; });
+    if (jn) rows = rows.filter(function (r) { return r.Jenis === jn; });
+    if (q) rows = rows.filter(function (r) { return (r.No_Tiket + ' ' + r.Subjek + ' ' + r.Nama).toLowerCase().indexOf(q) >= 0; });
+    rows.sort(function (a, b) { return b.Tanggal.localeCompare(a.Tanggal); });
+    return { total: rows.length, items: rows.slice(0, 300).map(function (r) { return { noTiket: r.No_Tiket, tanggal: r.Tanggal, jenis: r.Jenis, kategori: r.Kategori, subjek: r.Subjek, status: r.Status, nama: r.Anonim === 'Ya' ? 'Anonim' : r.Nama, ditangani: r.Ditangani_Oleh }; }) };
+  }, true);
+}
+function admin_pengaduanDetail(token, no) {
+  return safe_(function () {
+    const s = auth_(token, [R_HUMAS]);
+    const r = table_('Pengaduan').filter(function (x) { return x.No_Tiket === str_(no, 40); })[0];
+    if (!r) fail_('Data tidak ditemukan.');
+    log_(s, 'Lihat pengaduan', r.No_Tiket);
+    return { noTiket: r.No_Tiket, tanggal: r.Tanggal, jenis: r.Jenis, kategori: r.Kategori, nama: r.Anonim === 'Ya' ? 'Anonim' : r.Nama, kontak: r.Kontak, anonim: r.Anonim === 'Ya', subjek: r.Subjek, isi: r.Isi, adaLampiran: !!r.Lampiran_ID, status: r.Status, tanggapan: r.Tanggapan, ditangani: r.Ditangani_Oleh, waktuTanggapan: r.Waktu_Tanggapan };
+  }, true);
+}
+function admin_pengaduanLampiran(token, no) {
+  return safe_(function () {
+    const s = auth_(token, [R_HUMAS]);
+    const r = table_('Pengaduan').filter(function (x) { return x.No_Tiket === str_(no, 40); })[0];
+    if (!r || !r.Lampiran_ID) fail_('Tidak ada lampiran.');
+    log_(s, 'Lihat lampiran pengaduan', r.No_Tiket);
+    return bacaBerkasPrivat_(r.Lampiran_ID);
+  }, true);
+}
+function admin_pengaduanTanggapi(token, no, status, tanggapan) {
+  return safe_(function () {
+    const s = auth_(token, [R_HUMAS]);
+    status = str_(status, 40); tanggapan = str_(tanggapan, 3000);
+    if (STATUS_PENGADUAN.indexOf(status) < 0) fail_('Status tidak valid.');
+    if ((status === 'Selesai' || status === 'Tidak Dapat Diproses') && tanggapan.length < 10) fail_('Tanggapan wajib diisi (minimal 10 karakter) untuk status ini.');
+    const r = withLock_(function () {
+      const x = table_('Pengaduan').filter(function (y) { return y.No_Tiket === str_(no, 40); })[0];
+      if (!x) fail_('Data tidak ditemukan.');
+      x.Status = status; if (tanggapan) x.Tanggapan = tanggapan; x.Ditangani_Oleh = s.nama; x.Waktu_Tanggapan = now_();
+      setRow_('Pengaduan', x._row, x);
+      return clean_(x);
+    });
+    log_(s, 'Tanggapi ' + r.Jenis + ' -> ' + status, r.No_Tiket);
+    if (validEmail_(String(r.Kontak).toLowerCase()) && status !== 'Baru') kirimEmail_(r.Kontak, 'Tanggapan ' + r.Jenis + ' ' + r.No_Tiket, '<p>Status ' + esc_(r.Jenis.toLowerCase()) + ' Anda: <b>' + esc_(status) + '</b></p>' + (r.Tanggapan ? '<p>Tanggapan petugas:<br>' + esc_(r.Tanggapan).replace(/\n/g, '<br>') + '</p>' : ''));
+    return true;
+  }, true);
+}
+
+// =====================================================================
+//  API ADMIN : CRUD KONTEN (Layanan, Program, Galeri, Dokumen, Pejabat, Halaman)
+// =====================================================================
+const ENT = {
+  pelayanan: { sheet: 'Pelayanan', key: 'ID', roles: [R_LAYANAN], req: ['Nama'], idFrom: 'Nama', urut: true, enum: { Kelompok: KELOMPOK_LAYANAN }, long: ['Ringkasan', 'Tujuan', 'Persyaratan', 'Prosedur', 'Alur', 'Waktu', 'Biaya', 'Dasar_Hukum', 'Dokumen', 'Formulir', 'FAQ', 'Kontak'], cache: ['pub_pelayanan'] },
+  program: { sheet: 'Program', key: 'ID', roles: [R_HUMAS], req: ['Judul'], idPrefix: 'PR-', urut: true, urls: ['Foto_URL'], long: ['Deskripsi', 'Capaian'], cache: ['pub_program', 'pub_beranda'] },
+  galeri: { sheet: 'Galeri', key: 'ID', roles: [R_HUMAS], req: ['Judul', 'Foto_URL'], idPrefix: 'GL-', urls: ['Foto_URL'], tanggal: true, cache: ['pub_galeri', 'pub_beranda'] },
+  dokumen: { sheet: 'Dokumen', key: 'ID', roles: [R_HUMAS, R_LAYANAN], req: ['Judul', 'File_URL'], idPrefix: 'DK-', urls: ['File_URL'], tanggal: true, enum: { Kategori: KATEGORI_DOKUMEN }, long: ['Deskripsi'], cache: ['pub_dokumen', 'pub_beranda'] },
+  pejabat: { sheet: 'Pejabat', key: 'ID', roles: [R_SUPER], req: ['Nama', 'Jabatan'], idPrefix: 'PJ-', urut: true, urls: ['Foto_URL'], long: ['Profil'], cache: ['pub_struktur'] },
+  halaman: { sheet: 'Halaman', key: 'Slug', roles: [R_SUPER], req: ['Judul'], idFrom: 'Judul', html: ['Isi'], cache: ['pub_struktur'] }
+};
+const HALAMAN_INTI = ['sejarah', 'profil-singkat', 'tugas-fungsi', 'visi-misi', 'profil-kepala', 'alamat-wilayah', 'nilai-organisasi', 'budaya-kerja', 'kebijakan-privasi', 'ketentuan-penggunaan'];
+
+function entCfg_(ent) { const E = ENT[ent]; if (!E) fail_('Modul tidak dikenal.'); return E; }
+
+function admin_list(token, ent) {
+  return safe_(function () {
+    const E = entCfg_(ent); auth_(token, E.roles);
+    const rows = table_(E.sheet).map(clean_);
+    if (E.urut) rows.sort(urut_); else if (E.tanggal) rows.sort(function (a, b) { return (b.Tanggal || '').localeCompare(a.Tanggal || ''); });
+    return rows;
+  }, true);
+}
+
+function admin_save(token, ent, d) {
+  return safe_(function () {
+    const E = entCfg_(ent), s = auth_(token, E.roles);
+    d = d || {};
+    const rec = {};
+    SCHEMA[E.sheet].forEach(function (k) {
+      if (k === E.key || d[k] === undefined) return;
+      let v = d[k];
+      if (E.html && E.html.indexOf(k) >= 0) v = sanitizeHtml_(v);
+      else if (E.urls && E.urls.indexOf(k) >= 0) v = validUrl_(v, true);
+      else if (k === 'Aktif') v = (v === true || v === 'Ya') ? 'Ya' : 'Tidak';
+      else if (k === 'Urutan') v = String(Math.min(9999, Math.max(0, int_(v, 999))));
+      else if (k === 'Tanggal' || k === 'Diubah' || k === 'Diubah_Oleh' || k === 'Unduhan' || k === 'Dibuat_Oleh') return;
+      else v = str_(v, E.long && E.long.indexOf(k) >= 0 ? 6000 : 300);
+      rec[k] = v;
+    });
+    E.req.forEach(function (k) { if (!rec[k] && !(d[E.key] && !d.hasOwnProperty(k))) fail_(k.replace(/_/g, ' ') + ' wajib diisi.'); });
+    if (E.enum) Object.keys(E.enum).forEach(function (k) { if (rec[k] !== undefined && E.enum[k].indexOf(rec[k]) < 0) fail_('Nilai ' + k + ' tidak valid.'); });
+    if (rec.Ikon && !/^fa-[a-z0-9\-]{2,40}$/.test(rec.Ikon)) fail_('Nama ikon harus berformat FontAwesome, contoh: fa-user-group.');
+    let kunci = '';
+    withLock_(function () {
+      const rows = table_(E.sheet), id = str_(d[E.key], 100);
+      const ex = id ? rows.filter(function (r) { return r[E.key] === id; })[0] : null;
+      if (ex) {
+        const m = Object.assign({}, clean_(ex), rec);
+        if (E.sheet === 'Halaman') { m.Diubah = now_(); m.Diubah_Oleh = s.nama; }
+        setRow_(E.sheet, ex._row, m); kunci = id;
+      } else {
+        let nid;
+        if (E.idFrom) { const base = slugify_(rec[E.idFrom]) || 'item'; nid = base; let n = 2; while (rows.some(function (r) { return r[E.key] === nid; })) nid = base + '-' + (n++); }
+        else { do { nid = newId_(E.idPrefix); } while (rows.some(function (r) { return r[E.key] === nid; })); }
+        const m = Object.assign({ Aktif: 'Ya' }, rec); m[E.key] = nid;
+        if (E.tanggal) m.Tanggal = today_();
+        if (E.sheet === 'Galeri' || E.sheet === 'Dokumen') m.Dibuat_Oleh = s.nama;
+        if (E.sheet === 'Dokumen') m.Unduhan = '0';
+        if (E.sheet === 'Halaman') { m.Diubah = now_(); m.Diubah_Oleh = s.nama; if (!m.Kelompok) m.Kelompok = 'Umum'; }
+        if (E.urut && m.Urutan === undefined) m.Urutan = String(rows.reduce(function (mx, r) { return Math.max(mx, int_(r.Urutan, 0)); }, 0) + 1);
+        addRow_(E.sheet, m); kunci = nid;
+      }
+    });
+    cdel_(E.cache.concat(E.sheet === 'Halaman' ? ['hal_' + kunci] : []));
+    log_(s, 'Simpan ' + ent, kunci);
+    return { id: kunci };
+  }, true);
+}
+
+function admin_delete(token, ent, id) {
+  return safe_(function () {
+    const E = entCfg_(ent), s = auth_(token, E.roles);
+    id = str_(id, 100);
+    if (E.sheet === 'Halaman' && HALAMAN_INTI.indexOf(id) >= 0) fail_('Halaman inti tidak boleh dihapus. Kosongkan isinya atau edit sesuai kebutuhan.');
+    withLock_(function () {
+      const r = table_(E.sheet).filter(function (x) { return x[E.key] === id; })[0];
+      if (!r) fail_('Data tidak ditemukan.');
+      if (E.sheet === 'Pejabat') table_('Pejabat').forEach(function (p) { if (p.Atasan_ID === id) { p.Atasan_ID = ''; setRow_('Pejabat', p._row, clean_(p)); } });
+      const baris = table_(E.sheet).filter(function (x) { return x[E.key] === id; })[0];
+      delRow_(E.sheet, baris._row);
+    });
+    cdel_(E.cache.concat(E.sheet === 'Halaman' ? ['hal_' + id] : []));
+    log_(s, 'Hapus ' + ent, id);
+    return true;
+  }, true);
+}
+
+// =====================================================================
+//  API ADMIN : PENGATURAN
+// =====================================================================
+function kunciBolehDiubah_(role) {
+  if (role === R_SUPER) return DEFAULT_SETTINGS.map(function (d) { return d[0]; });
+  return SETTING_ROLES[role] || [];
+}
+function admin_getPengaturan(token) {
+  return safe_(function () {
+    const s = auth_(token), c = cfg_(), boleh = kunciBolehDiubah_(s.role);
+    return DEFAULT_SETTINGS.filter(function (d) { return boleh.indexOf(d[0]) >= 0; }).map(function (d) { return { k: d[0], ket: d[2], v: c[d[0]] === undefined ? '' : c[d[0]] }; });
+  }, true);
+}
+function normJadwal_(raw) {
+  const j = typeof raw === 'string' ? jsonSafe_(raw, null) : raw;
+  if (!j || typeof j !== 'object') fail_('Format jadwal kunjungan tidak valid.');
+  const out = {};
+  for (let h = 0; h <= 6; h++) {
+    const arr = Array.isArray(j[String(h)]) ? j[String(h)] : [], seen = {}, list = [];
+    if (arr.length > 8) fail_('Maksimal 8 sesi per hari.');
+    arr.forEach(function (x) {
+      const nama = str_(x && x.nama, 40), jam = str_(x && x.jam, 30), kuota = int_(x && x.kuota, -1);
+      if (!nama) return;
+      if (kuota < 0 || kuota > 500) fail_('Kuota sesi "' + nama + '" harus berupa angka 0 sampai 500.');
+      if (seen[nama.toLowerCase()]) fail_('Nama sesi "' + nama + '" ganda pada hari ' + HARI[h] + '.');
+      seen[nama.toLowerCase()] = 1; list.push({ nama: nama, jam: jam, kuota: kuota });
+    });
+    if (list.length) out[String(h)] = list;
+  }
+  return JSON.stringify(out);
+}
+function validSetting_(k, v) {
+  v = v === undefined || v === null ? '' : v;
+  if (/^(Logo_URL|Hero_URL|Kepala_Foto|Maps_Link|Sosmed_)/.test(k)) return validUrl_(v, true);
+  if (k === 'Maps_Embed') { v = str_(v, 1200); if (v && !/^https:\/\/www\.google\.com\/maps\/embed/.test(v)) fail_('URL embed peta harus diawali https://www.google.com/maps/embed'); return v; }
+  if (k === 'Pendaftaran_Dibuka' || k === 'KTP_Wajib' || k === 'Wajib_Persetujuan_Berita') return (v === 'Ya' || v === true) ? 'Ya' : 'Tidak';
+  if (k === 'Maks_Hari_Daftar') return String(Math.min(60, Math.max(1, int_(v, 14))));
+  if (k === 'Min_Hari_Daftar') return String(Math.min(30, Math.max(0, int_(v, 1))));
+  if (k === 'Maks_Pengikut') return String(Math.min(10, Math.max(0, int_(v, 3))));
+  if (k === 'Maks_Kunjungan_WBP_Hari') return String(Math.min(50, Math.max(0, int_(v, 0))));
+  if (k === 'WhatsApp_Layanan') { v = String(v).replace(/\D/g, ''); if (v && !/^62\d{8,13}$/.test(v)) fail_('Nomor WhatsApp harus berformat 62xxxxxxxxxx.'); return v; }
+  if (k === 'Jadwal_Kunjungan') return normJadwal_(v);
+  if (k === 'Libur_Kunjungan') { return barisList_(v).map(function (l) { const i = l.indexOf('|'), d = (i < 0 ? l : l.slice(0, i)).trim(); if (!isDate_(d)) fail_('Format tanggal libur salah: "' + l.slice(0, 30) + '". Gunakan yyyy-mm-dd|keterangan'); return d + '|' + (i < 0 ? '' : str_(l.slice(i + 1), 80)); }).join('\n'); }
+  if (/^Email/.test(k) && k !== 'Email') { v = str_(v, 120); if (v && !validEmail_(v)) fail_('Format email tidak valid.'); return v; }
+  if (k === 'Email') { v = str_(v, 120); if (v && !validEmail_(v)) fail_('Format email resmi tidak valid.'); return v; }
+  const long = ['Kepala_Sambutan', 'Fasilitas_Disabilitas'].indexOf(k) >= 0;
+  return str_(v, long ? 4000 : 300);
+}
+function admin_simpanPengaturan(token, obj) {
+  return safe_(function () {
+    const s = auth_(token), boleh = kunciBolehDiubah_(s.role);
+    obj = obj || {};
+    const rec = {};
+    Object.keys(obj).forEach(function (k) {
+      if (boleh.indexOf(k) < 0) fail_('Anda tidak berhak mengubah pengaturan "' + k + '".', 'AKSES');
+      rec[k] = validSetting_(k, obj[k]);
+    });
+    withLock_(function () {
+      const rows = table_('Pengaturan');
+      Object.keys(rec).forEach(function (k) {
+        const ex = rows.filter(function (r) { return r.Kunci === k; })[0], ket = (DEFAULT_SETTINGS.filter(function (d) { return d[0] === k; })[0] || [])[2] || '';
+        if (ex) { ex.Nilai = rec[k]; setRow_('Pengaturan', ex._row, clean_(ex)); } else addRow_('Pengaturan', { Kunci: k, Nilai: rec[k], Keterangan: ket });
+      });
+    });
+    bersihCache_();
+    log_(s, 'Ubah pengaturan', Object.keys(rec).join(', '));
+    return true;
+  }, true);
+}
+
+// =====================================================================
+//  API ADMIN : PENGGUNA & LOG (Super Admin)
+// =====================================================================
+function userAdmin_(u) { return { username: u.Username, nama: u.Nama, jabatan: u.Jabatan, role: u.Role, status: u.Status, email: u.Email, terakhirLogin: u.Terakhir_Login, wajibGanti: u.Wajib_Ganti === 'Ya' }; }
+function admin_userList(token) { return safe_(function () { auth_(token, [R_SUPER]); return table_('Users').map(userAdmin_); }, true); }
+function admin_userSimpan(token, d) {
+  return safe_(function () {
+    const s = auth_(token, [R_SUPER]);
+    d = d || {};
+    const username = str_(d.username, 30).toLowerCase(), nama = str_(d.nama, 100), jabatan = str_(d.jabatan, 100), role = str_(d.role, 30), email = str_(d.email, 120).toLowerCase();
+    if (!/^[a-z0-9._-]{3,30}$/.test(username)) fail_('Username 3-30 karakter: huruf kecil, angka, titik, strip, atau garis bawah.');
+    if (nama.length < 3) fail_('Nama wajib diisi.');
+    if ([R_SUPER, R_LAYANAN, R_HUMAS].indexOf(role) < 0) fail_('Pilih peran akun.');
+    if (email && !validEmail_(email)) fail_('Format email tidak valid.');
+    const status = d.status === 'Nonaktif' ? 'Nonaktif' : 'Aktif';
+    withLock_(function () {
+      const rows = table_('Users'), ex = rows.filter(function (r) { return r.Username === username; })[0];
+      const aktifSuper = rows.filter(function (r) { return r.Role === R_SUPER && r.Status === 'Aktif' && r.Username !== username; }).length;
+      if (ex) {
+        if (ex.Role === R_SUPER && (role !== R_SUPER || status !== 'Aktif') && aktifSuper < 1) fail_('Harus tersisa minimal satu Super Admin aktif.');
+        if (ex.Username === s.username && status !== 'Aktif') fail_('Anda tidak dapat menonaktifkan akun Anda sendiri.');
+        ex.Nama = nama; ex.Jabatan = jabatan; ex.Role = role; ex.Status = status; ex.Email = email;
+        setRow_('Users', ex._row, clean_(ex));
+        if (status !== 'Aktif' || ex.Role !== role) cabutSesi_(username);
+      } else {
+        cekPasswordBaru_(d.password);
+        const salt = Utilities.getUuid();
+        addRow_('Users', { Username: username, Nama: nama, Jabatan: jabatan, Role: role, Password_Hash: hash_(String(d.password), salt), Salt: salt, Status: status, Wajib_Ganti: 'Ya', Email: email, Terakhir_Login: '', Dibuat: now_() });
+      }
+    });
+    log_(s, 'Simpan pengguna', username);
+    return true;
+  }, true);
+}
+function admin_userResetPassword(token, username, passwordBaru) {
+  return safe_(function () {
+    const s = auth_(token, [R_SUPER]);
+    cekPasswordBaru_(passwordBaru);
+    withLock_(function () {
+      const u = table_('Users').filter(function (r) { return r.Username === str_(username, 30); })[0];
+      if (!u) fail_('Akun tidak ditemukan.');
+      const salt = Utilities.getUuid();
+      u.Salt = salt; u.Password_Hash = hash_(String(passwordBaru), salt); u.Wajib_Ganti = 'Ya';
+      setRow_('Users', u._row, clean_(u));
+    });
+    cabutSesi_(str_(username, 30));
+    CacheService.getScriptCache().remove('fail_' + str_(username, 30).toLowerCase());
+    log_(s, 'Reset password', username);
+    return true;
+  }, true);
+}
+// DARURAT (lupa password Super Admin): jalankan dari editor Apps Script, bukan dari website.
+// 1) Ubah dua nilai di bawah, 2) pilih fungsi resetPasswordDarurat, 3) klik Run, 4) HAPUS password dari kode setelah selesai.
+function resetPasswordDarurat() {
+  const USERNAME = 'admin';
+  const PASSWORD_BARU = 'GantiDenganPasswordBaru1';   // minimal 8 karakter, huruf dan angka
+  cekPasswordBaru_(PASSWORD_BARU);
+  withLock_(function () {
+    const u = table_('Users').filter(function (r) { return r.Username === USERNAME; })[0];
+    if (!u) throw new Error('Akun tidak ditemukan: ' + USERNAME);
+    const salt = Utilities.getUuid();
+    u.Salt = salt; u.Password_Hash = hash_(PASSWORD_BARU, salt); u.Wajib_Ganti = 'Ya'; u.Status = 'Aktif';
+    setRow_('Users', u._row, clean_(u));
+  });
+  cabutSesi_(USERNAME);
+  CacheService.getScriptCache().remove('fail_' + USERNAME.toLowerCase());
+  Logger.log('Password akun ' + USERNAME + ' sudah direset. Wajib diganti saat login berikutnya.');
+}
+function admin_logList(token) {
+  return safe_(function () { auth_(token, [R_SUPER]); return table_('Log').slice(-300).reverse().map(clean_); }, true);
+}
+
+function admin_beritaOpsi(token) {
+  return safe_(function () { auth_(token, [R_HUMAS]); return { perlu: cfg_().Wajib_Persetujuan_Berita === 'Ya' }; }, true);
+}

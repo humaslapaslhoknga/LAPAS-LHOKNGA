@@ -1,0 +1,6 @@
+{
+  "name": "SILAPAS Lhoknga",
+  "description": "Sistem Informasi Layanan Pemasyarakatan - Lapas Kelas III Lhoknga, Kemenimipas RI",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
